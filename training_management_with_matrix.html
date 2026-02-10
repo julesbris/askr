@@ -4232,9 +4232,12 @@
                             >
                                 Competency Matrix
                             </button>
-                            <button
-                                onClick={() => setActiveTab('courses')}
-                                className={`px-6 py-3 font-semibold $
+                           <button
+    onClick={() => setActiveTab('courses')}
+    className={`px-6 py-3 font-semibold ${activeTab === 'courses' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
+>
+    Training Courses
+</button>
                         {activeTab === 'matrix' && (
                             <div className="bg-white rounded-lg shadow-lg overflow-hidden">
                                 <div className="p-6 border-b">
