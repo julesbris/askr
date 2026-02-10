@@ -1,0 +1,24 @@
+# Enable PHP processing
+AddType application/x-httpd-php .php
+
+# Upload limits
+php_value upload_max_filesize 5M
+php_value post_max_size 6M
+php_value max_execution_time 300
+php_value max_input_time 300
+
+# CORS headers for API
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "POST, GET, DELETE, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type"
+</IfModule>
+
+# Security - prevent directory listing
+Options -Indexes
+
+# Security - prevent access to sensitive files
+<FilesMatch "\.(htaccess|htpasswd|ini|log|sh|sql)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
