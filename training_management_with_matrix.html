@@ -1,0 +1,4494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Training Management System - Cook Shire Council</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .badge-internal { background: #10b981; color: white; }
+        .badge-external { background: #8b5cf6; color: white; }
+        .status-complete { background: #22c55e; color: white; }
+        .status-expiring { background: #f59e0b; color: white; }
+        .status-expired { background: #ef4444; color: white; }
+        .status-pending { background: #94a3b8; color: white; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        const SAMPLE_PEOPLE = [
+            { id: 'p1', name: 'John Smith', roleId: 'role_1', department: 'Fleet & Civil Works', email: 'john.smith@cookshire.qld.gov.au' },
+            { id: 'p2', name: 'Sarah Johnson', roleId: 'role_2', department: 'Fleet & Civil Works', email: 'sarah.johnson@cookshire.qld.gov.au' },
+            { id: 'p3', name: 'Michael Brown', roleId: 'role_14', department: 'Engineering', email: 'michael.brown@cookshire.qld.gov.au' },
+            { id: 'p4', name: 'Emily Davis', roleId: 'role_26', department: 'Water & Waste', email: 'emily.davis@cookshire.qld.gov.au' },
+            { id: 'p5', name: 'David Wilson', roleId: 'role_47', department: 'Financial Services', email: 'david.wilson@cookshire.qld.gov.au' },
+        ];
+
+        const SAMPLE_COURSES = [
+            {
+                id: 'course_1',
+                name: 'White Card - Construction Induction',
+                providerType: 'external',
+                provider: 'SafeWork QLD',
+                recertificationMonths: null,
+                internalVerificationAllowed: false,
+                cost: 120,
+                duration: '1 day',
+                notes: 'Required for all construction workers'
+            },
+            {
+                id: 'course_2',
+                name: 'First Aid Certificate',
+                providerType: 'external',
+                provider: 'St Johns Ambulance',
+                recertificationMonths: 36,
+                internalVerificationAllowed: false,
+                cost: 180,
+                duration: '2 days',
+                notes: 'CPR and First Aid training'
+            },
+            {
+                id: 'course_3',
+                name: 'Forklift Operation',
+                providerType: 'internal',
+                provider: 'Cook Shire Council',
+                recertificationMonths: 60,
+                internalVerificationAllowed: true,
+                internalVerifier: 'Workshop Foreman',
+                cost: 0,
+                duration: '3 days',
+                notes: 'Internal training with certification'
+            },
+            {
+                id: 'course_4',
+                name: 'Manual Handling',
+                providerType: 'internal',
+                provider: 'Cook Shire Council',
+                recertificationMonths: 24,
+                internalVerificationAllowed: true,
+                internalVerifier: 'WHS Manager',
+                cost: 0,
+                duration: '4 hours',
+                notes: 'Refresher every 2 years'
+            },
+        ];
+
+        const EMBEDDED_DATA = {
+  "roles": [
+    {
+      "id": "role_0",
+      "name": "M(A) - Mandatory (All)\nM(S) - Mandatory (Specific)\nD(A) - Desirable (Specific All)\nD(S) - Desirable (Specific Staff)",
+      "department": ""
+    },
+    {
+      "id": "role_1",
+      "name": "Depot Administration Officer",
+      "department": "Fleet & Civil Works"
+    },
+    {
+      "id": "role_2",
+      "name": "Diesel Fitter",
+      "department": ""
+    },
+    {
+      "id": "role_3",
+      "name": "Apprentice Diesel Fitter",
+      "department": ""
+    },
+    {
+      "id": "role_4",
+      "name": "Civil Construction Labourer / Relief Plant",
+      "department": ""
+    },
+    {
+      "id": "role_5",
+      "name": "Grader Operator",
+      "department": ""
+    },
+    {
+      "id": "role_6",
+      "name": "Truck Driver / Labourer",
+      "department": ""
+    },
+    {
+      "id": "role_7",
+      "name": "Civil Construction Plant Operator",
+      "department": ""
+    },
+    {
+      "id": "role_8",
+      "name": "Civil Construction Labourer",
+      "department": ""
+    },
+    {
+      "id": "role_9",
+      "name": "Civil Construction Ganger",
+      "department": ""
+    },
+    {
+      "id": "role_10",
+      "name": "Trade Assistant (Water & Wastewater)",
+      "department": ""
+    },
+    {
+      "id": "role_11",
+      "name": "Maintenance Technician",
+      "department": ""
+    },
+    {
+      "id": "role_12",
+      "name": "Boilermaker",
+      "department": ""
+    },
+    {
+      "id": "role_13",
+      "name": "Concrete Labourer",
+      "department": ""
+    },
+    {
+      "id": "role_14",
+      "name": "Concrete Finisher",
+      "department": ""
+    },
+    {
+      "id": "role_15",
+      "name": "Civil Works Construction Foreman",
+      "department": ""
+    },
+    {
+      "id": "role_16",
+      "name": "Structural Foreperson",
+      "department": ""
+    },
+    {
+      "id": "role_17",
+      "name": "Workshop Foreman",
+      "department": ""
+    },
+    {
+      "id": "role_18",
+      "name": "Manager Fleet & Workshop",
+      "department": ""
+    },
+    {
+      "id": "role_19",
+      "name": "Survey & GIS Technical Officer",
+      "department": ""
+    },
+    {
+      "id": "role_20",
+      "name": "Civil Operations Coordinator",
+      "department": ""
+    },
+    {
+      "id": "role_21",
+      "name": "Project Manager",
+      "department": "Engineering"
+    },
+    {
+      "id": "role_22",
+      "name": "Civil Operations Coordinator.1",
+      "department": ""
+    },
+    {
+      "id": "role_23",
+      "name": "Project Engineer",
+      "department": ""
+    },
+    {
+      "id": "role_24",
+      "name": "Project Support Officer",
+      "department": ""
+    },
+    {
+      "id": "role_25",
+      "name": "Parks & Gardens Coordinator",
+      "department": ""
+    },
+    {
+      "id": "role_26",
+      "name": "Botanic Gardens Curator",
+      "department": ""
+    },
+    {
+      "id": "role_27",
+      "name": "Manager Engineering",
+      "department": ""
+    },
+    {
+      "id": "role_28",
+      "name": "Administration Technical Officer",
+      "department": "Water & Waste"
+    },
+    {
+      "id": "role_29",
+      "name": "Rubbish Collection and Disposal",
+      "department": ""
+    },
+    {
+      "id": "role_30",
+      "name": "Waste Management Operator - Lakeland & Laura",
+      "department": ""
+    },
+    {
+      "id": "role_31",
+      "name": "Waste Management Operator - Ayton",
+      "department": ""
+    },
+    {
+      "id": "role_32",
+      "name": "Waste Management Operator - Cooktown",
+      "department": ""
+    },
+    {
+      "id": "role_33",
+      "name": "Plumbers (Water & Wastewater)",
+      "department": ""
+    },
+    {
+      "id": "role_34",
+      "name": "Apprentice Plumber",
+      "department": ""
+    },
+    {
+      "id": "role_35",
+      "name": "Leading Hand / Relief Plant Operator",
+      "department": ""
+    },
+    {
+      "id": "role_36",
+      "name": "Water & Wastewater Network Operator",
+      "department": ""
+    },
+    {
+      "id": "role_37",
+      "name": "Water & Wastewater Treatment Plant Operator - Cooktown",
+      "department": ""
+    },
+    {
+      "id": "role_38",
+      "name": "Water & Wastewater Treatment Plant Operator - Coen",
+      "department": ""
+    },
+    {
+      "id": "role_39",
+      "name": "Team Leader Reticulation, Water & Treatment",
+      "department": ""
+    },
+    {
+      "id": "role_40",
+      "name": "Electrician Water & Wastewater",
+      "department": ""
+    },
+    {
+      "id": "role_41",
+      "name": "Apprentice Electrician",
+      "department": ""
+    },
+    {
+      "id": "role_42",
+      "name": "Waste Management Coordinator",
+      "department": ""
+    },
+    {
+      "id": "role_43",
+      "name": "Manager Water & Waste",
+      "department": ""
+    },
+    {
+      "id": "role_44",
+      "name": "Manager Water & Waste.1",
+      "department": ""
+    },
+    {
+      "id": "role_45",
+      "name": "Coen Coordinator and Airport Reporting Officer",
+      "department": "Airports"
+    },
+    {
+      "id": "role_46",
+      "name": "Airport Reporting Officer",
+      "department": ""
+    },
+    {
+      "id": "role_47",
+      "name": "Cooktown Airport Operations Officer",
+      "department": ""
+    },
+    {
+      "id": "role_48",
+      "name": "Manager Airports",
+      "department": ""
+    },
+    {
+      "id": "role_49",
+      "name": "DRFA Contractors",
+      "department": "DRFA"
+    },
+    {
+      "id": "role_50",
+      "name": "DRFA Forepersons",
+      "department": ""
+    },
+    {
+      "id": "role_51",
+      "name": "Delivery Coordinator DRFA Works",
+      "department": ""
+    },
+    {
+      "id": "role_52",
+      "name": "DRFA Operations Coordinator",
+      "department": ""
+    },
+    {
+      "id": "role_53",
+      "name": "DRFA Project Officer",
+      "department": ""
+    },
+    {
+      "id": "role_54",
+      "name": "DRFA Administration Support Officer",
+      "department": ""
+    },
+    {
+      "id": "role_55",
+      "name": "Lead Systems Developer",
+      "department": ""
+    },
+    {
+      "id": "role_56",
+      "name": "DRFA Systems Developer",
+      "department": ""
+    },
+    {
+      "id": "role_57",
+      "name": "Manager - DRFA Works",
+      "department": ""
+    },
+    {
+      "id": "role_58",
+      "name": "Parks & Gardens Labourers",
+      "department": "Parks and Gardens"
+    },
+    {
+      "id": "role_59",
+      "name": "Botanic Gardens Labourers",
+      "department": ""
+    },
+    {
+      "id": "role_60",
+      "name": "Parks & Gardens Ganger",
+      "department": ""
+    },
+    {
+      "id": "role_61",
+      "name": "Botanic Gardens Ganger",
+      "department": ""
+    },
+    {
+      "id": "role_62",
+      "name": "Horticulturalist",
+      "department": ""
+    },
+    {
+      "id": "role_63",
+      "name": "Parks & Gardens Coordinator.1",
+      "department": ""
+    },
+    {
+      "id": "role_64",
+      "name": "Curator Botanic Gardens",
+      "department": ""
+    },
+    {
+      "id": "role_65",
+      "name": "Payroll Officer",
+      "department": "Financial Services"
+    },
+    {
+      "id": "role_66",
+      "name": "Accounts Payable Officer",
+      "department": ""
+    },
+    {
+      "id": "role_67",
+      "name": "Stores Officer",
+      "department": ""
+    },
+    {
+      "id": "role_68",
+      "name": "Rates Officer",
+      "department": ""
+    },
+    {
+      "id": "role_69",
+      "name": "Senior Accounts Officer",
+      "department": ""
+    },
+    {
+      "id": "role_70",
+      "name": "Senior Finance Officer",
+      "department": ""
+    },
+    {
+      "id": "role_71",
+      "name": "Accountant",
+      "department": ""
+    },
+    {
+      "id": "role_72",
+      "name": "Housing Officer",
+      "department": ""
+    },
+    {
+      "id": "role_73",
+      "name": "Property & Commercial Services Coordinator",
+      "department": ""
+    },
+    {
+      "id": "role_74",
+      "name": "Asset Coordinator",
+      "department": ""
+    },
+    {
+      "id": "role_75",
+      "name": "Procurement Coordinator",
+      "department": ""
+    },
+    {
+      "id": "role_76",
+      "name": "Finance Manager",
+      "department": ""
+    },
+    {
+      "id": "role_77",
+      "name": "Chief Financial Officer",
+      "department": ""
+    },
+    {
+      "id": "role_78",
+      "name": "ICT Operations & Support Officer",
+      "department": "Information & Communications Technology"
+    },
+    {
+      "id": "role_79",
+      "name": "ICT Coordinator",
+      "department": ""
+    },
+    {
+      "id": "role_80",
+      "name": "ICT System Administrator",
+      "department": ""
+    },
+    {
+      "id": "role_81",
+      "name": "ICT Administration Officer",
+      "department": ""
+    },
+    {
+      "id": "role_82",
+      "name": "ICT Operations & Support Officer.1",
+      "department": ""
+    },
+    {
+      "id": "role_83",
+      "name": "Media & Communications Officer",
+      "department": "Communications & Engagement"
+    },
+    {
+      "id": "role_84",
+      "name": "Indigenous (Bama) Patnerships Officer",
+      "department": ""
+    },
+    {
+      "id": "role_85",
+      "name": "Communications & Engagement Manager",
+      "department": ""
+    },
+    {
+      "id": "role_86",
+      "name": "Safety & Training Advisor",
+      "department": "People and Performance"
+    },
+    {
+      "id": "role_87",
+      "name": "WHS Manager",
+      "department": ""
+    },
+    {
+      "id": "role_88",
+      "name": "Senior HR Advisor\n(Infrastructure)",
+      "department": ""
+    },
+    {
+      "id": "role_89",
+      "name": "Senior HR Advisor",
+      "department": ""
+    },
+    {
+      "id": "role_90",
+      "name": "Administration Officer\nP&P",
+      "department": ""
+    },
+    {
+      "id": "role_91",
+      "name": "Executive Manager \nP&P",
+      "department": ""
+    },
+    {
+      "id": "role_92",
+      "name": "Building & Facilities Support Officer",
+      "department": "Building & Facilities"
+    },
+    {
+      "id": "role_93",
+      "name": "Buliding & Facilities Support Officer",
+      "department": ""
+    },
+    {
+      "id": "role_94",
+      "name": "Cleaners",
+      "department": ""
+    },
+    {
+      "id": "role_95",
+      "name": "Team Leader - Cleaning",
+      "department": ""
+    },
+    {
+      "id": "role_96",
+      "name": "Casual Cleaner - Coen",
+      "department": ""
+    },
+    {
+      "id": "role_97",
+      "name": "Senior Cleaner Coen",
+      "department": ""
+    },
+    {
+      "id": "role_98",
+      "name": "Project Officer",
+      "department": ""
+    },
+    {
+      "id": "role_99",
+      "name": "Coen Public Spaces",
+      "department": ""
+    },
+    {
+      "id": "role_100",
+      "name": "Coen Waste Management Plant Operator",
+      "department": ""
+    },
+    {
+      "id": "role_101",
+      "name": "Plumber",
+      "department": ""
+    },
+    {
+      "id": "role_102",
+      "name": "Lead Electrician",
+      "department": ""
+    },
+    {
+      "id": "role_103",
+      "name": "Trade Assistant",
+      "department": ""
+    },
+    {
+      "id": "role_104",
+      "name": "Maintenance Coordinator - Coen",
+      "department": ""
+    },
+    {
+      "id": "role_105",
+      "name": "Carpenter",
+      "department": ""
+    },
+    {
+      "id": "role_106",
+      "name": "Chief Operating Officer",
+      "department": ""
+    },
+    {
+      "id": "role_107",
+      "name": "Facilities & Projects Manager",
+      "department": ""
+    },
+    {
+      "id": "role_108",
+      "name": "Local Laws Officer",
+      "department": "Planning & Environment"
+    },
+    {
+      "id": "role_109",
+      "name": "Biosecurity Operator",
+      "department": ""
+    },
+    {
+      "id": "role_110",
+      "name": "Biosecurity Officer",
+      "department": ""
+    },
+    {
+      "id": "role_111",
+      "name": "Animal Management Officer",
+      "department": ""
+    },
+    {
+      "id": "role_112",
+      "name": "Compliance Officer",
+      "department": ""
+    },
+    {
+      "id": "role_113",
+      "name": "Biosecurity & Local Laws Manager",
+      "department": ""
+    },
+    {
+      "id": "role_114",
+      "name": "Planning Officer",
+      "department": ""
+    },
+    {
+      "id": "role_115",
+      "name": "P & E Administration Officer",
+      "department": ""
+    },
+    {
+      "id": "role_116",
+      "name": "P & E Administration Officer.1",
+      "department": ""
+    },
+    {
+      "id": "role_117",
+      "name": "Plumbing & Drainage Inspector",
+      "department": ""
+    },
+    {
+      "id": "role_118",
+      "name": "Environmental Health Officer",
+      "department": ""
+    },
+    {
+      "id": "role_119",
+      "name": "Land Tenure Officer",
+      "department": ""
+    },
+    {
+      "id": "role_120",
+      "name": "Library Officer Bloomfield",
+      "department": "Community Lifestyle"
+    },
+    {
+      "id": "role_121",
+      "name": "Library Officer Cooktown",
+      "department": ""
+    },
+    {
+      "id": "role_122",
+      "name": "Team Leader Library Services",
+      "department": ""
+    },
+    {
+      "id": "role_123",
+      "name": "Customer Service Officer",
+      "department": ""
+    },
+    {
+      "id": "role_124",
+      "name": "Team Leader Customer Service",
+      "department": ""
+    },
+    {
+      "id": "role_125",
+      "name": "Pool Attendant / Lifeguard / Instructor",
+      "department": ""
+    },
+    {
+      "id": "role_126",
+      "name": "Team Leader Cooktown Pool",
+      "department": ""
+    },
+    {
+      "id": "role_127",
+      "name": "Coen Sport & Recreational Officer",
+      "department": ""
+    },
+    {
+      "id": "role_128",
+      "name": "Community Lifestyle Coordinator",
+      "department": ""
+    },
+    {
+      "id": "role_129",
+      "name": "Administration Officer",
+      "department": "Regional Development"
+    },
+    {
+      "id": "role_130",
+      "name": "Casual Fitness Instructor",
+      "department": ""
+    },
+    {
+      "id": "role_131",
+      "name": "Casual Cleaner Venue Support",
+      "department": ""
+    },
+    {
+      "id": "role_132",
+      "name": "Cooktown Events Centre Manager",
+      "department": ""
+    },
+    {
+      "id": "role_133",
+      "name": "Funding & Business Development Officer",
+      "department": ""
+    },
+    {
+      "id": "role_134",
+      "name": "Natures Powerhouse Caf\u00e9",
+      "department": ""
+    },
+    {
+      "id": "role_135",
+      "name": "Community Connections & Events Officer",
+      "department": ""
+    },
+    {
+      "id": "role_136",
+      "name": "Senior Tourism & Events Officer",
+      "department": ""
+    },
+    {
+      "id": "role_137",
+      "name": "Regional Arts Officer",
+      "department": ""
+    },
+    {
+      "id": "role_138",
+      "name": "Regional Development Manager",
+      "department": ""
+    },
+    {
+      "id": "role_139",
+      "name": "Regional Development Manager.1",
+      "department": "Growth & Liveability"
+    },
+    {
+      "id": "role_140",
+      "name": "Community Lifestyle Coordinator.1",
+      "department": ""
+    },
+    {
+      "id": "role_141",
+      "name": "Planning & Environment Manager",
+      "department": ""
+    },
+    {
+      "id": "role_142",
+      "name": "Facilities & Projects Manager.1",
+      "department": ""
+    },
+    {
+      "id": "role_143",
+      "name": "Communications Engagement Manager",
+      "department": ""
+    },
+    {
+      "id": "role_144",
+      "name": "Information & Communications Technology Manager",
+      "department": ""
+    },
+    {
+      "id": "role_145",
+      "name": "Disaster Management Officer",
+      "department": ""
+    },
+    {
+      "id": "role_146",
+      "name": "Executive Assistant",
+      "department": ""
+    },
+    {
+      "id": "role_147",
+      "name": "Chief Operating Officer.1",
+      "department": ""
+    },
+    {
+      "id": "role_148",
+      "name": "Excecutive Assistant",
+      "department": "Infrastructure"
+    },
+    {
+      "id": "role_149",
+      "name": "Director Infrastructure",
+      "department": ""
+    },
+    {
+      "id": "role_150",
+      "name": "Records Management Officer",
+      "department": "Office of the CEO"
+    },
+    {
+      "id": "role_151",
+      "name": "Senior Records Management Officer",
+      "department": ""
+    },
+    {
+      "id": "role_152",
+      "name": "Governance Coordinator",
+      "department": ""
+    },
+    {
+      "id": "role_153",
+      "name": "Administration Officer.1",
+      "department": ""
+    },
+    {
+      "id": "role_154",
+      "name": "Audit, Risk & Grants Officer",
+      "department": ""
+    },
+    {
+      "id": "role_155",
+      "name": "Manager Office of the CEO",
+      "department": ""
+    },
+    {
+      "id": "role_156",
+      "name": "Chief Executive Officer",
+      "department": ""
+    }
+  ],
+  "competencies": [
+    {
+      "id": "comp_1",
+      "name": "Working with Children check (Blue Card)",
+      "category": "",
+      "requirements": {
+        "role_84": "M(A)"
+      }
+    },
+    {
+      "id": "comp_2",
+      "name": "Immunisation Requirments",
+      "category": "",
+      "requirements": {
+        "role_58": "M(A)",
+        "role_59": "M(A)",
+        "role_60": "M(A)",
+        "role_61": "M(A)",
+        "role_62": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "M(A)",
+        "role_94": "M(A)",
+        "role_95": "M(A)",
+        "role_96": "M(A)",
+        "role_101": "M(A)"
+      }
+    },
+    {
+      "id": "comp_3",
+      "name": "Prepare to work safely in the construction industry (white card)",
+      "category": "",
+      "requirements": {
+        "role_2": "M(A)",
+        "role_3": "M(A)",
+        "role_4": "M(A)",
+        "role_5": "M(A)",
+        "role_6": "M(A)",
+        "role_7": "M(A)",
+        "role_8": "M(A)",
+        "role_9": "M(A)",
+        "role_10": "M(A)",
+        "role_11": "M(A)",
+        "role_12": "M(A)",
+        "role_13": "M(A)",
+        "role_14": "M(A)",
+        "role_15": "M(A)",
+        "role_16": "M(A)",
+        "role_17": "M(A)",
+        "role_18": "M(A)",
+        "role_19": "M(A)",
+        "role_20": "M(A)",
+        "role_46": "M(A)",
+        "role_58": "M(A)",
+        "role_59": "M(A)",
+        "role_60": "M(A)",
+        "role_61": "M(A)",
+        "role_62": "M(A)",
+        "role_63": "M(A)",
+        "role_86": "M(A)",
+        "role_87": "M(A)",
+        "role_94": "D(A)",
+        "role_97": "D(A)",
+        "role_99": "M(A)",
+        "role_100": "M(A)",
+        "role_102": "M(A)",
+        "role_103": "M(A)",
+        "role_104": "M(A)",
+        "role_105": "M(A)",
+        "role_107": "M(A)"
+      }
+    },
+    {
+      "id": "comp_4",
+      "name": "Car ( C)",
+      "category": "Vehicle Licence \nCodes",
+      "requirements": {
+        "role_2": "M(A)",
+        "role_3": "D(A)",
+        "role_4": "M(A)",
+        "role_5": "M(A)",
+        "role_6": "M(A)",
+        "role_7": "M(A)",
+        "role_8": "M(A)",
+        "role_9": "M(A)",
+        "role_10": "M(A)",
+        "role_11": "M(A)",
+        "role_12": "M(A)",
+        "role_13": "M(A)",
+        "role_14": "M(A)",
+        "role_15": "M(A)",
+        "role_16": "M(A)",
+        "role_17": "M(A)",
+        "role_18": "M(A)",
+        "role_19": "M(A)",
+        "role_20": "M(A)",
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)",
+        "role_59": "M(A)",
+        "role_60": "M(A)",
+        "role_61": "M(A)",
+        "role_62": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "M(A)",
+        "role_65": "M(A)",
+        "role_68": "M(A)",
+        "role_73": "M(A)",
+        "role_74": "M(A)",
+        "role_75": "M(A)",
+        "role_78": "M(A)",
+        "role_79": "M(A)",
+        "role_80": "M(A)",
+        "role_81": "M(A)",
+        "role_83": "M(A)",
+        "role_84": "M(A)",
+        "role_85": "M(A)",
+        "role_86": "M(A)",
+        "role_87": "M(A)",
+        "role_88": "D(A)",
+        "role_89": "D(A)",
+        "role_90": "D(A)",
+        "role_91": "M(A)",
+        "role_94": "M(A)",
+        "role_95": "M(A)",
+        "role_97": "M(A)",
+        "role_98": "M(A)",
+        "role_99": "M(A)",
+        "role_100": "M(A)",
+        "role_102": "M(A)",
+        "role_103": "M(A)",
+        "role_104": "M(A)",
+        "role_105": "M(A)",
+        "role_107": "M(A)",
+        "role_151": "M(A)"
+      }
+    },
+    {
+      "id": "comp_5",
+      "name": "Light rigid (LR)",
+      "category": "",
+      "requirements": {
+        "role_4": "D(A)"
+      }
+    },
+    {
+      "id": "comp_6",
+      "name": "Medium rigid (MR)",
+      "category": "",
+      "requirements": {
+        "role_4": "D(A)",
+        "role_7": "M(A)",
+        "role_8": "M(A)",
+        "role_9": "M(A)",
+        "role_10": "D(A)",
+        "role_12": "M(A)",
+        "role_15": "M(A)",
+        "role_16": "M(A)",
+        "role_58": "M(A)",
+        "role_60": "D(A)",
+        "role_103": "D(A)"
+      }
+    },
+    {
+      "id": "comp_7",
+      "name": "Heavy Rigid (HR)",
+      "category": "",
+      "requirements": {
+        "role_2": "D(A)",
+        "role_5": "M(A)",
+        "role_13": "D(A)",
+        "role_14": "D(A)",
+        "role_17": "M(A)",
+        "role_60": "D(A)",
+        "role_99": "D(A)",
+        "role_100": "D(A)",
+        "role_104": "D(A)"
+      }
+    },
+    {
+      "id": "comp_9",
+      "name": "Multi Combination (MC)",
+      "category": "",
+      "requirements": {
+        "role_6": "M(A)"
+      }
+    },
+    {
+      "id": "comp_14",
+      "name": "Dozer (LZ licence code)",
+      "category": "Earthmoving",
+      "requirements": {
+        "role_4": "D(A)",
+        "role_5": "D(A)",
+        "role_6": "D(A)",
+        "role_7": "D(A)",
+        "role_8": "D(A)"
+      }
+    },
+    {
+      "id": "comp_15",
+      "name": "Skid steer loader (LS licence code)",
+      "category": "",
+      "requirements": {
+        "role_4": "D(A)",
+        "role_5": "D(A)",
+        "role_6": "D(A)",
+        "role_7": "D(A)",
+        "role_8": "D(A)",
+        "role_60": "D(A)"
+      }
+    },
+    {
+      "id": "comp_16",
+      "name": "Grader (LG licence code)",
+      "category": "",
+      "requirements": {
+        "role_4": "D(A)",
+        "role_5": "D(A)",
+        "role_6": "D(A)",
+        "role_7": "D(A)",
+        "role_8": "D(A)"
+      }
+    },
+    {
+      "id": "comp_17",
+      "name": "Scraper (LP licence code)",
+      "category": "",
+      "requirements": {
+        "role_4": "D(A)",
+        "role_5": "D(A)",
+        "role_6": "D(A)",
+        "role_7": "D(A)",
+        "role_8": "D(A)"
+      }
+    },
+    {
+      "id": "comp_18",
+      "name": "Road Roller (LR licence code)",
+      "category": "",
+      "requirements": {
+        "role_4": "D(A)",
+        "role_5": "D(A)",
+        "role_6": "D(A)",
+        "role_7": "D(A)",
+        "role_8": "D(A)"
+      }
+    },
+    {
+      "id": "comp_19",
+      "name": "Excavator (LE licence code)",
+      "category": "",
+      "requirements": {
+        "role_4": "D(A)",
+        "role_5": "D(A)",
+        "role_6": "D(A)",
+        "role_7": "D(A)",
+        "role_8": "D(A)"
+      }
+    },
+    {
+      "id": "comp_20",
+      "name": "Bridge and gantry (remote control crane) (LBG licence code)",
+      "category": "",
+      "requirements": {
+        "role_4": "D(A)",
+        "role_5": "D(A)",
+        "role_6": "D(A)",
+        "role_7": "D(A)",
+        "role_8": "D(A)"
+      }
+    },
+    {
+      "id": "comp_21",
+      "name": "Front-end loader backhoe (LB licence code)",
+      "category": "",
+      "requirements": {
+        "role_4": "D(A)",
+        "role_5": "D(A)",
+        "role_6": "D(A)",
+        "role_7": "D(A)",
+        "role_8": "D(A)",
+        "role_99": "D(A)",
+        "role_100": "D(A)",
+        "role_104": "D(A)"
+      }
+    },
+    {
+      "id": "comp_22",
+      "name": "Trenching & Excavation",
+      "category": "",
+      "requirements": {
+        "role_4": "D(A)",
+        "role_5": "D(A)",
+        "role_6": "D(A)",
+        "role_7": "D(A)",
+        "role_8": "D(A)"
+      }
+    },
+    {
+      "id": "comp_23",
+      "name": "Load Restraint",
+      "category": "",
+      "requirements": {
+        "role_4": "D(A)",
+        "role_5": "D(A)",
+        "role_6": "D(A)",
+        "role_7": "D(A)",
+        "role_8": "D(A)"
+      }
+    },
+    {
+      "id": "comp_24",
+      "name": "Load and Unload Plant",
+      "category": "",
+      "requirements": {
+        "role_4": "D(A)",
+        "role_5": "D(A)",
+        "role_6": "D(A)",
+        "role_7": "D(A)",
+        "role_8": "D(A)"
+      }
+    },
+    {
+      "id": "comp_25",
+      "name": "Traffic Management Implementation (TMI) (Every three years)",
+      "category": "Traffic",
+      "requirements": {
+        "role_9": "M(A)",
+        "role_15": "M(A)",
+        "role_16": "M(A)",
+        "role_58": "D(A)"
+      }
+    },
+    {
+      "id": "comp_26",
+      "name": "Traffic Controller",
+      "category": "",
+      "requirements": {
+        "role_9": "M(A)"
+      }
+    },
+    {
+      "id": "comp_30",
+      "name": "Work in Proximity to traffic 1 & 2",
+      "category": "",
+      "requirements": {
+        "role_4": "M(A)",
+        "role_5": "M(A)",
+        "role_6": "M(A)",
+        "role_7": "M(A)",
+        "role_8": "M(A)",
+        "role_9": "M(A)",
+        "role_60": "M(A)",
+        "role_63": "M(A)"
+      }
+    },
+    {
+      "id": "comp_32",
+      "name": "Tractor - Slasher, Broom, Flail, Cemetery tractor (VOC)",
+      "category": "Other plant & equipment",
+      "requirements": {
+        "role_46": "D(A)",
+        "role_58": "D(A)",
+        "role_59": "M(A)",
+        "role_104": "D(A)"
+      }
+    },
+    {
+      "id": "comp_38",
+      "name": "Mower, Ride-on, Swiss, Boom, Out-front",
+      "category": "",
+      "requirements": {
+        "role_46": "D(A)",
+        "role_58": "M(A)",
+        "role_59": "M(A)",
+        "role_60": "M(A)",
+        "role_61": "D(A)",
+        "role_62": "M(A)",
+        "role_104": "D(A)"
+      }
+    },
+    {
+      "id": "comp_49",
+      "name": "Asbestos licence (class A) (HRWL)",
+      "category": "",
+      "requirements": {
+        "role_105": "D(A)"
+      }
+    },
+    {
+      "id": "comp_55",
+      "name": "Basic scaffolding work (SB) (HRWL)",
+      "category": "",
+      "requirements": {
+        "role_102": "D(A)",
+        "role_105": "D(A)"
+      }
+    },
+    {
+      "id": "comp_60",
+      "name": "Forklift (LF) (HRWL)",
+      "category": "",
+      "requirements": {
+        "role_2": "M(A)",
+        "role_60": "D(A)"
+      }
+    },
+    {
+      "id": "comp_61",
+      "name": "Vertical Lift (VL)",
+      "category": "EW\n(Yellow Card)",
+      "requirements": {
+        "role_102": "D(A)",
+        "role_105": "D(A)"
+      }
+    },
+    {
+      "id": "comp_62",
+      "name": "Scissor Lift (SL)",
+      "category": "",
+      "requirements": {
+        "role_102": "D(A)",
+        "role_105": "D(A)"
+      }
+    },
+    {
+      "id": "comp_66",
+      "name": "Working at Heights",
+      "category": "WAH",
+      "requirements": {
+        "role_102": "D(A)",
+        "role_103": "M(A)",
+        "role_105": "D(A)"
+      }
+    },
+    {
+      "id": "comp_67",
+      "name": "Electrical Mechanic Licence",
+      "category": "Electrical",
+      "requirements": {
+        "role_102": "M(A)"
+      }
+    },
+    {
+      "id": "comp_69",
+      "name": "Electrical Fitter Licence",
+      "category": "",
+      "requirements": {
+        "role_102": "M(A)"
+      }
+    },
+    {
+      "id": "comp_76",
+      "name": "Low Vaultage and Rescue (3 years?)",
+      "category": "",
+      "requirements": {
+        "role_102": "M(A)"
+      }
+    },
+    {
+      "id": "comp_77",
+      "name": "Air Conditioning Installation (Split Systems)",
+      "category": "",
+      "requirements": {
+        "role_102": "D(A)"
+      }
+    },
+    {
+      "id": "comp_82",
+      "name": "Confined Space Entry",
+      "category": "",
+      "requirements": {
+        "role_2": "M(A)",
+        "role_102": "D(A)",
+        "role_103": "M(A)",
+        "role_104": "M(A)",
+        "role_105": "D(A)"
+      }
+    },
+    {
+      "id": "comp_83",
+      "name": "Firearm Licences (Category A)",
+      "category": "Firearms",
+      "requirements": {
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)"
+      }
+    },
+    {
+      "id": "comp_84",
+      "name": "Firearm Licences (Category B)",
+      "category": "",
+      "requirements": {
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)"
+      }
+    },
+    {
+      "id": "comp_86",
+      "name": "Cut materials with a hand-held chainsaw",
+      "category": "",
+      "requirements": {
+        "role_58": "M(A)",
+        "role_60": "M(A)",
+        "role_61": "D(A)",
+        "role_62": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "M(A)"
+      }
+    },
+    {
+      "id": "comp_87",
+      "name": "Operate Pole Saw",
+      "category": "",
+      "requirements": {
+        "role_58": "M(A)",
+        "role_61": "D(A)",
+        "role_64": "M(A)"
+      }
+    },
+    {
+      "id": "comp_88",
+      "name": "Service and repair chansaw cutting systems",
+      "category": "",
+      "requirements": {
+        "role_61": "D(A)"
+      }
+    },
+    {
+      "id": "comp_89",
+      "name": "Use a chainsaaw withing a tree",
+      "category": "",
+      "requirements": {
+        "role_58": "D(A)",
+        "role_60": "M(A)",
+        "role_61": "D(A)",
+        "role_62": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "M(A)",
+        "role_99": "M(A)"
+      }
+    },
+    {
+      "id": "comp_90",
+      "name": "Operate a mobile chipper",
+      "category": "",
+      "requirements": {
+        "role_61": "D(A)"
+      }
+    },
+    {
+      "id": "comp_93",
+      "name": "Trim and Cut felled trees",
+      "category": "",
+      "requirements": {
+        "role_58": "D(A)",
+        "role_60": "M(A)",
+        "role_61": "D(A)",
+        "role_62": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "M(A)"
+      }
+    },
+    {
+      "id": "comp_94",
+      "name": "Fell trees manually (advanced)",
+      "category": "",
+      "requirements": {
+        "role_58": "D(A)",
+        "role_60": "M(A)",
+        "role_62": "M(A)",
+        "role_64": "M(A)"
+      }
+    },
+    {
+      "id": "comp_96",
+      "name": "Chemical Handling",
+      "category": "Hazardous Substances",
+      "requirements": {
+        "role_60": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "D(A)",
+        "role_94": "D(A)",
+        "role_95": "M(A)",
+        "role_97": "M(A)"
+      }
+    },
+    {
+      "id": "comp_98",
+      "name": "Asbestos Awareness",
+      "category": "",
+      "requirements": {
+        "role_102": "D(A)",
+        "role_105": "M(A)"
+      }
+    },
+    {
+      "id": "comp_99",
+      "name": "Poisons and invasive weeds / Threat Weeds",
+      "category": "",
+      "requirements": {
+        "role_60": "M(A)",
+        "role_61": "D(A)",
+        "role_63": "M(A)",
+        "role_64": "D(A)"
+      }
+    },
+    {
+      "id": "comp_101",
+      "name": "Commercial Operators Licence (Chemicals)  ACDC - Agricultural Chemicals Distribution Control",
+      "category": "",
+      "requirements": {
+        "role_60": "M(A)",
+        "role_61": "M(A)",
+        "role_62": "M(A)",
+        "role_63": "D(S)",
+        "role_64": "D(A)",
+        "role_99": "M(A)",
+        "role_100": "M(A)"
+      }
+    },
+    {
+      "id": "comp_115",
+      "name": "WHS / OHS Managers & Supervisors",
+      "category": "WHS Awareness & Competencies",
+      "requirements": {
+        "role_87": "D(A)"
+      }
+    },
+    {
+      "id": "comp_116",
+      "name": "First Aid HLTAID011 3 yrly/ CPR HLTAID009 1 yrly",
+      "category": "",
+      "requirements": {
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)",
+        "role_104": "M(A)"
+      }
+    },
+    {
+      "id": "comp_118",
+      "name": "Rehabilitation and return to work coordinator training",
+      "category": "",
+      "requirements": {
+        "role_86": "D(A)",
+        "role_87": "M(A)"
+      }
+    },
+    {
+      "id": "comp_119",
+      "name": "Collect specimens for drugs of abuse testing (TDDA)",
+      "category": "",
+      "requirements": {
+        "role_86": "D(A)"
+      }
+    },
+    {
+      "id": "comp_128",
+      "name": "Test & Tag",
+      "category": "",
+      "requirements": {
+        "role_102": "M(A)",
+        "role_103": "D(A)"
+      }
+    },
+    {
+      "id": "comp_130",
+      "name": "Road and Structural Certification",
+      "category": "",
+      "requirements": {
+        "role_15": "M(A)",
+        "role_16": "M(A)"
+      }
+    },
+    {
+      "id": "comp_134",
+      "name": "Bridge Inspection Level 1 & 2",
+      "category": "",
+      "requirements": {
+        "role_16": "M(A)"
+      }
+    },
+    {
+      "id": "comp_145",
+      "name": "Aerodrome Reporting Officer & Works Safety Officer",
+      "category": "Airport Operations",
+      "requirements": {
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)",
+        "role_104": "M(A)"
+      }
+    },
+    {
+      "id": "comp_146",
+      "name": "Air Navigation",
+      "category": "",
+      "requirements": {
+        "role_45": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)"
+      }
+    },
+    {
+      "id": "comp_147",
+      "name": "VHF Radio Operators Certificate",
+      "category": "",
+      "requirements": {
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)",
+        "role_104": "M(A)"
+      }
+    },
+    {
+      "id": "comp_148",
+      "name": "Aviation Fuel Dispensing",
+      "category": "",
+      "requirements": {
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)",
+        "role_104": "D(A)"
+      }
+    },
+    {
+      "id": "comp_149",
+      "name": "Aviation Security Identification Card ASIC",
+      "category": "",
+      "requirements": {
+        "role_45": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)"
+      }
+    },
+    {
+      "id": "comp_150",
+      "name": "Certificate III or Deploma in Airside Operations",
+      "category": "",
+      "requirements": {
+        "role_48": "M(A)"
+      }
+    },
+    {
+      "id": "comp_151",
+      "name": "Certificate II in Security Operations & Aviation Security",
+      "category": "",
+      "requirements": {
+        "role_48": "M(A)"
+      }
+    },
+    {
+      "id": "comp_153",
+      "name": "Native Title and Cultural Heritage",
+      "category": "",
+      "requirements": {
+        "role_73": "M(A)"
+      }
+    },
+    {
+      "id": "comp_154",
+      "name": "Heritage Buildings awareness",
+      "category": "",
+      "requirements": {
+        "role_73": "M(A)"
+      }
+    },
+    {
+      "id": "comp_155",
+      "name": "IT Specialist skill sets",
+      "category": "",
+      "requirements": {
+        "role_78": "M(A)",
+        "role_79": "M(A)",
+        "role_80": "M(A)",
+        "role_81": "D(A)"
+      }
+    },
+    {
+      "id": "comp_157",
+      "name": "Infection Control for Outdoor Workers (public areas)",
+      "category": "",
+      "requirements": {
+        "role_94": "M(A)",
+        "role_95": "M(A)",
+        "role_97": "M(A)",
+        "role_99": "M(A)",
+        "role_100": "M(A)",
+        "role_102": "M(A)",
+        "role_105": "M(A)"
+      }
+    },
+    {
+      "id": "comp_160",
+      "name": "QBCC Qld Building & Construction Licence",
+      "category": "",
+      "requirements": {
+        "role_105": "M(A)",
+        "role_107": "M(A)"
+      }
+    },
+    {
+      "id": "comp_163",
+      "name": "Year 10",
+      "category": "",
+      "requirements": {
+        "role_3": "M(A)"
+      }
+    },
+    {
+      "id": "comp_164",
+      "name": "Fleet Management Certificate",
+      "category": "",
+      "requirements": {
+        "role_18": "M(A)"
+      }
+    },
+    {
+      "id": "comp_165",
+      "name": "Project Management (Diploma / CertIV)",
+      "category": "",
+      "requirements": {
+        "role_79": "D(A)",
+        "role_104": "D(A)",
+        "role_107": "M(A)"
+      }
+    },
+    {
+      "id": "comp_171",
+      "name": "Cert IV in Surveying and Geospacial Information Services",
+      "category": "",
+      "requirements": {
+        "role_19": "M(A)"
+      }
+    },
+    {
+      "id": "comp_172",
+      "name": "Engineering / Surveying / Geopspacial (degree)",
+      "category": "",
+      "requirements": {
+        "role_19": "D(A)"
+      }
+    },
+    {
+      "id": "comp_173",
+      "name": "Engineering Civil (degree)",
+      "category": "",
+      "requirements": {
+        "role_20": "M(A)"
+      }
+    },
+    {
+      "id": "comp_174",
+      "name": "RPEQ",
+      "category": "",
+      "requirements": {
+        "role_20": "D(A)"
+      }
+    },
+    {
+      "id": "comp_175",
+      "name": "Cert III in Business Administration",
+      "category": "",
+      "requirements": {
+        "role_70": "M(A)",
+        "role_77": "M(A)",
+        "role_90": "D(A)",
+        "role_151": "M(A)",
+        "role_153": "M(A)",
+        "role_154": "M(A)",
+        "role_155": "M(A)"
+      }
+    },
+    {
+      "id": "comp_176",
+      "name": "Cert III in Boiler making and fabrication",
+      "category": "",
+      "requirements": {
+        "role_12": "M(A)"
+      }
+    },
+    {
+      "id": "comp_177",
+      "name": "Cert III in Civil Road Construction and Maintenance",
+      "category": "",
+      "requirements": {
+        "role_9": "M(A)",
+        "role_15": "M(A)",
+        "role_16": "M(A)"
+      }
+    },
+    {
+      "id": "comp_178",
+      "name": "Cert III Automotive / Heavy Vehicles",
+      "category": "",
+      "requirements": {
+        "role_2": "M(A)",
+        "role_17": "M(A)"
+      }
+    },
+    {
+      "id": "comp_181",
+      "name": "Cert III in Parks and Gardens",
+      "category": "",
+      "requirements": {
+        "role_60": "M(A)",
+        "role_63": "M(A)"
+      }
+    },
+    {
+      "id": "comp_182",
+      "name": "Cert III in Horticulture",
+      "category": "",
+      "requirements": {
+        "role_58": "D(A)",
+        "role_61": "M(A)",
+        "role_62": "M(A)"
+      }
+    },
+    {
+      "id": "comp_184",
+      "name": "Cert III in Water Indust Ops",
+      "category": "",
+      "requirements": {
+        "role_104": "M(A)"
+      }
+    },
+    {
+      "id": "comp_185",
+      "name": "Cert IV in Civil Construction Supervision",
+      "category": "",
+      "requirements": {
+        "role_15": "D(A)",
+        "role_16": "D(A)"
+      }
+    },
+    {
+      "id": "comp_186",
+      "name": "Cert IV in Information Technology",
+      "category": "",
+      "requirements": {
+        "role_78": "M(A)",
+        "role_79": "M(A)",
+        "role_80": "M(A)"
+      }
+    },
+    {
+      "id": "comp_189",
+      "name": "Cert IV in Local Government",
+      "category": "",
+      "requirements": {
+        "role_79": "D(A)"
+      }
+    },
+    {
+      "id": "comp_190",
+      "name": "Cert IV in Waste Management",
+      "category": "",
+      "requirements": {
+        "role_100": "M(A)"
+      }
+    },
+    {
+      "id": "comp_193",
+      "name": "Manage Parks & Reserves (Diploma)",
+      "category": "",
+      "requirements": {
+        "role_60": "D(A)",
+        "role_63": "D(A)"
+      }
+    },
+    {
+      "id": "comp_198",
+      "name": "Cert IV in Work Health and Safety",
+      "category": "",
+      "requirements": {
+        "role_86": "M(A)",
+        "role_91": "M(A)"
+      }
+    },
+    {
+      "id": "comp_199",
+      "name": "Cert IV in Training & Assessment",
+      "category": "",
+      "requirements": {
+        "role_86": "D(A)",
+        "role_87": "D(A)"
+      }
+    },
+    {
+      "id": "comp_200",
+      "name": "Certificate/Degree/Diploma in relevant field",
+      "category": "",
+      "requirements": {
+        "role_65": "M(A)",
+        "role_67": "M(A)",
+        "role_69": "M(A)",
+        "role_70": "M(A)",
+        "role_71": "M(A)",
+        "role_73": "M(A)",
+        "role_74": "M(A)",
+        "role_75": "M(A)",
+        "role_76": "M(A)",
+        "role_77": "M(A)",
+        "role_83": "M(A)",
+        "role_85": "M(A)",
+        "role_87": "M(A)",
+        "role_88": "M(A)",
+        "role_89": "M(A)",
+        "role_90": "D(A)",
+        "role_91": "M(A)",
+        "role_98": "M(A)",
+        "role_102": "M(A)",
+        "role_103": "D(A)",
+        "role_105": "M(A)",
+        "role_152": "D(A)",
+        "role_153": "M(A)",
+        "role_154": "M(A)"
+      }
+    },
+    {
+      "id": "comp_201",
+      "name": "Dipolma of Horticulture",
+      "category": "",
+      "requirements": {
+        "role_60": "D(A)",
+        "role_64": "M(A)"
+      }
+    },
+    {
+      "id": "comp_202",
+      "name": "Diploma of Local Government",
+      "category": "",
+      "requirements": {
+        "role_155": "D(A)"
+      }
+    },
+    {
+      "id": "comp_204",
+      "name": "Registered Professional Association",
+      "category": "",
+      "requirements": {
+        "role_77": "M(A)"
+      }
+    },
+    {
+      "id": "comp_207",
+      "name": "Emergency procedures",
+      "category": "Across Council Knowledge/Skills",
+      "requirements": {
+        "role_1": "M(A)",
+        "role_2": "M(A)",
+        "role_3": "M(A)",
+        "role_4": "M(A)",
+        "role_5": "M(A)",
+        "role_6": "M(A)",
+        "role_7": "M(A)",
+        "role_8": "M(A)",
+        "role_9": "M(A)",
+        "role_10": "M(A)",
+        "role_11": "M(A)",
+        "role_12": "M(A)",
+        "role_13": "M(A)",
+        "role_14": "M(A)",
+        "role_15": "M(A)",
+        "role_16": "M(A)",
+        "role_17": "M(A)",
+        "role_18": "M(A)",
+        "role_19": "M(A)",
+        "role_20": "M(A)",
+        "role_21": "M(A)",
+        "role_22": "M(A)",
+        "role_23": "M(A)",
+        "role_24": "M(A)",
+        "role_25": "M(A)",
+        "role_26": "M(A)",
+        "role_27": "M(A)",
+        "role_28": "M(A)",
+        "role_29": "M(A)",
+        "role_30": "M(A)",
+        "role_31": "M(A)",
+        "role_32": "M(A)",
+        "role_33": "M(A)",
+        "role_34": "M(A)",
+        "role_35": "M(A)",
+        "role_36": "M(A)",
+        "role_37": "M(A)",
+        "role_38": "M(A)",
+        "role_39": "M(A)",
+        "role_40": "M(A)",
+        "role_41": "M(A)",
+        "role_42": "M(A)",
+        "role_43": "M(A)",
+        "role_44": "M(A)",
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)",
+        "role_49": "M(A)",
+        "role_50": "M(A)",
+        "role_51": "M(A)",
+        "role_52": "M(A)",
+        "role_53": "M(A)",
+        "role_54": "M(A)",
+        "role_55": "M(A)",
+        "role_56": "M(A)",
+        "role_57": "M(A)",
+        "role_58": "M(A)",
+        "role_59": "M(A)",
+        "role_60": "M(A)",
+        "role_61": "M(A)",
+        "role_62": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "M(A)",
+        "role_65": "M(A)",
+        "role_66": "M(A)",
+        "role_67": "M(A)",
+        "role_68": "M(A)",
+        "role_69": "M(A)",
+        "role_70": "M(A)",
+        "role_71": "M(A)",
+        "role_72": "M(A)",
+        "role_73": "M(A)",
+        "role_74": "M(A)",
+        "role_75": "M(A)",
+        "role_76": "M(A)",
+        "role_77": "M(A)",
+        "role_78": "M(A)",
+        "role_79": "M(A)",
+        "role_80": "M(A)",
+        "role_81": "M(A)",
+        "role_82": "M(A)",
+        "role_83": "M(A)",
+        "role_84": "M(A)",
+        "role_85": "M(A)",
+        "role_86": "M(A)",
+        "role_87": "M(A)",
+        "role_88": "M(A)",
+        "role_89": "M(A)",
+        "role_90": "M(A)",
+        "role_91": "M(A)",
+        "role_92": "M(A)",
+        "role_93": "M(A)",
+        "role_94": "M(A)",
+        "role_95": "M(A)",
+        "role_96": "M(A)",
+        "role_97": "M(A)",
+        "role_98": "M(A)",
+        "role_99": "M(A)",
+        "role_100": "M(A)",
+        "role_101": "M(A)",
+        "role_102": "M(A)",
+        "role_103": "M(A)",
+        "role_104": "M(A)",
+        "role_105": "M(A)",
+        "role_106": "M(A)",
+        "role_107": "M(A)",
+        "role_108": "M(A)",
+        "role_109": "M(A)",
+        "role_110": "M(A)",
+        "role_111": "M(A)",
+        "role_112": "M(A)",
+        "role_113": "M(A)",
+        "role_114": "M(A)",
+        "role_115": "M(A)",
+        "role_116": "M(A)",
+        "role_117": "M(A)",
+        "role_118": "M(A)",
+        "role_119": "M(A)",
+        "role_120": "M(A)",
+        "role_121": "M(A)",
+        "role_122": "M(A)",
+        "role_123": "M(A)",
+        "role_124": "M(A)",
+        "role_125": "M(A)",
+        "role_126": "M(A)",
+        "role_127": "M(A)",
+        "role_128": "M(A)",
+        "role_129": "M(A)",
+        "role_130": "M(A)",
+        "role_131": "M(A)",
+        "role_132": "M(A)",
+        "role_133": "M(A)",
+        "role_134": "M(A)",
+        "role_135": "M(A)",
+        "role_136": "M(A)",
+        "role_137": "M(A)",
+        "role_138": "M(A)",
+        "role_139": "M(A)",
+        "role_140": "M(A)",
+        "role_141": "M(A)",
+        "role_142": "M(A)",
+        "role_143": "M(A)",
+        "role_144": "M(A)",
+        "role_145": "M(A)",
+        "role_146": "M(A)",
+        "role_147": "M(A)",
+        "role_148": "M(A)",
+        "role_149": "M(A)",
+        "role_150": "M(A)",
+        "role_151": "M(A)",
+        "role_152": "M(A)",
+        "role_153": "M(A)",
+        "role_154": "M(A)",
+        "role_155": "M(A)",
+        "role_156": "M(A)"
+      }
+    },
+    {
+      "id": "comp_208",
+      "name": "Information Privacy",
+      "category": "",
+      "requirements": {
+        "role_1": "M(A)",
+        "role_2": "M(A)",
+        "role_3": "M(A)",
+        "role_4": "M(A)",
+        "role_5": "M(A)",
+        "role_6": "M(A)",
+        "role_7": "M(A)",
+        "role_8": "M(A)",
+        "role_9": "M(A)",
+        "role_10": "M(A)",
+        "role_11": "M(A)",
+        "role_12": "M(A)",
+        "role_13": "M(A)",
+        "role_14": "M(A)",
+        "role_15": "M(A)",
+        "role_16": "M(A)",
+        "role_17": "M(A)",
+        "role_18": "M(A)",
+        "role_19": "M(A)",
+        "role_20": "M(A)",
+        "role_21": "M(A)",
+        "role_22": "M(A)",
+        "role_23": "M(A)",
+        "role_24": "M(A)",
+        "role_25": "M(A)",
+        "role_26": "M(A)",
+        "role_27": "M(A)",
+        "role_28": "M(A)",
+        "role_29": "M(A)",
+        "role_30": "M(A)",
+        "role_31": "M(A)",
+        "role_32": "M(A)",
+        "role_33": "M(A)",
+        "role_34": "M(A)",
+        "role_35": "M(A)",
+        "role_36": "M(A)",
+        "role_37": "M(A)",
+        "role_38": "M(A)",
+        "role_39": "M(A)",
+        "role_40": "M(A)",
+        "role_41": "M(A)",
+        "role_42": "M(A)",
+        "role_43": "M(A)",
+        "role_44": "M(A)",
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)",
+        "role_49": "M(A)",
+        "role_50": "M(A)",
+        "role_51": "M(A)",
+        "role_52": "M(A)",
+        "role_53": "M(A)",
+        "role_54": "M(A)",
+        "role_55": "M(A)",
+        "role_56": "M(A)",
+        "role_57": "M(A)",
+        "role_58": "M(A)",
+        "role_59": "M(A)",
+        "role_60": "M(A)",
+        "role_61": "M(A)",
+        "role_62": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "M(A)",
+        "role_65": "M(A)",
+        "role_66": "M(A)",
+        "role_67": "M(A)",
+        "role_68": "M(A)",
+        "role_69": "M(A)",
+        "role_70": "M(A)",
+        "role_71": "M(A)",
+        "role_72": "M(A)",
+        "role_73": "M(A)",
+        "role_74": "M(A)",
+        "role_75": "M(A)",
+        "role_76": "M(A)",
+        "role_77": "M(A)",
+        "role_78": "M(A)",
+        "role_79": "M(A)",
+        "role_80": "M(A)",
+        "role_81": "M(A)",
+        "role_82": "M(A)",
+        "role_83": "M(A)",
+        "role_84": "M(A)",
+        "role_85": "M(A)",
+        "role_86": "M(A)",
+        "role_87": "M(A)",
+        "role_88": "M(A)",
+        "role_89": "M(A)",
+        "role_90": "M(A)",
+        "role_91": "M(A)",
+        "role_92": "M(A)",
+        "role_93": "M(A)",
+        "role_94": "M(A)",
+        "role_95": "M(A)",
+        "role_96": "M(A)",
+        "role_97": "M(A)",
+        "role_98": "M(A)",
+        "role_99": "M(A)",
+        "role_100": "M(A)",
+        "role_101": "M(A)",
+        "role_102": "M(A)",
+        "role_103": "M(A)",
+        "role_104": "M(A)",
+        "role_105": "M(A)",
+        "role_106": "M(A)",
+        "role_107": "M(A)",
+        "role_108": "M(A)",
+        "role_109": "M(A)",
+        "role_110": "M(A)",
+        "role_111": "M(A)",
+        "role_112": "M(A)",
+        "role_113": "M(A)",
+        "role_114": "M(A)",
+        "role_115": "M(A)",
+        "role_116": "M(A)",
+        "role_117": "M(A)",
+        "role_118": "M(A)",
+        "role_119": "M(A)",
+        "role_120": "M(A)",
+        "role_121": "M(A)",
+        "role_122": "M(A)",
+        "role_123": "M(A)",
+        "role_124": "M(A)",
+        "role_125": "M(A)",
+        "role_126": "M(A)",
+        "role_127": "M(A)",
+        "role_128": "M(A)",
+        "role_129": "M(A)",
+        "role_130": "M(A)",
+        "role_131": "M(A)",
+        "role_132": "M(A)",
+        "role_133": "M(A)",
+        "role_134": "M(A)",
+        "role_135": "M(A)",
+        "role_136": "M(A)",
+        "role_137": "M(A)",
+        "role_138": "M(A)",
+        "role_139": "M(A)",
+        "role_140": "M(A)",
+        "role_141": "M(A)",
+        "role_142": "M(A)",
+        "role_143": "M(A)",
+        "role_144": "M(A)",
+        "role_145": "M(A)",
+        "role_146": "M(A)",
+        "role_147": "M(A)",
+        "role_148": "M(A)",
+        "role_149": "M(A)",
+        "role_150": "M(A)",
+        "role_151": "M(A)",
+        "role_152": "M(A)",
+        "role_153": "M(A)",
+        "role_154": "M(A)",
+        "role_155": "M(A)",
+        "role_156": "M(A)"
+      }
+    },
+    {
+      "id": "comp_209",
+      "name": "Safety Induction (General)",
+      "category": "",
+      "requirements": {
+        "role_1": "M(A)",
+        "role_2": "M(A)",
+        "role_3": "M(A)",
+        "role_4": "M(A)",
+        "role_5": "M(A)",
+        "role_6": "M(A)",
+        "role_7": "M(A)",
+        "role_8": "M(A)",
+        "role_9": "M(A)",
+        "role_10": "M(A)",
+        "role_11": "M(A)",
+        "role_12": "M(A)",
+        "role_13": "M(A)",
+        "role_14": "M(A)",
+        "role_15": "M(A)",
+        "role_16": "M(A)",
+        "role_17": "M(A)",
+        "role_18": "M(A)",
+        "role_19": "M(A)",
+        "role_20": "M(A)",
+        "role_21": "M(A)",
+        "role_22": "M(A)",
+        "role_23": "M(A)",
+        "role_24": "M(A)",
+        "role_25": "M(A)",
+        "role_26": "M(A)",
+        "role_27": "M(A)",
+        "role_28": "M(A)",
+        "role_29": "M(A)",
+        "role_30": "M(A)",
+        "role_31": "M(A)",
+        "role_32": "M(A)",
+        "role_33": "M(A)",
+        "role_34": "M(A)",
+        "role_35": "M(A)",
+        "role_36": "M(A)",
+        "role_37": "M(A)",
+        "role_38": "M(A)",
+        "role_39": "M(A)",
+        "role_40": "M(A)",
+        "role_41": "M(A)",
+        "role_42": "M(A)",
+        "role_43": "M(A)",
+        "role_44": "M(A)",
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)",
+        "role_49": "M(A)",
+        "role_50": "M(A)",
+        "role_51": "M(A)",
+        "role_52": "M(A)",
+        "role_53": "M(A)",
+        "role_54": "M(A)",
+        "role_55": "M(A)",
+        "role_56": "M(A)",
+        "role_57": "M(A)",
+        "role_58": "M(A)",
+        "role_59": "M(A)",
+        "role_60": "M(A)",
+        "role_61": "M(A)",
+        "role_62": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "M(A)",
+        "role_65": "M(A)",
+        "role_66": "M(A)",
+        "role_67": "M(A)",
+        "role_68": "M(A)",
+        "role_69": "M(A)",
+        "role_70": "M(A)",
+        "role_71": "M(A)",
+        "role_72": "M(A)",
+        "role_73": "M(A)",
+        "role_74": "M(A)",
+        "role_75": "M(A)",
+        "role_76": "M(A)",
+        "role_77": "M(A)",
+        "role_78": "M(A)",
+        "role_79": "M(A)",
+        "role_80": "M(A)",
+        "role_81": "M(A)",
+        "role_82": "M(A)",
+        "role_83": "M(A)",
+        "role_84": "M(A)",
+        "role_85": "M(A)",
+        "role_86": "M(A)",
+        "role_87": "M(A)",
+        "role_88": "M(A)",
+        "role_89": "M(A)",
+        "role_90": "M(A)",
+        "role_91": "M(A)",
+        "role_92": "M(A)",
+        "role_93": "M(A)",
+        "role_94": "M(A)",
+        "role_95": "M(A)",
+        "role_96": "M(A)",
+        "role_97": "M(A)",
+        "role_98": "M(A)",
+        "role_99": "M(A)",
+        "role_100": "M(A)",
+        "role_101": "M(A)",
+        "role_102": "M(A)",
+        "role_103": "M(A)",
+        "role_104": "M(A)",
+        "role_105": "M(A)",
+        "role_106": "M(A)",
+        "role_107": "M(A)",
+        "role_108": "M(A)",
+        "role_109": "M(A)",
+        "role_110": "M(A)",
+        "role_111": "M(A)",
+        "role_112": "M(A)",
+        "role_113": "M(A)",
+        "role_114": "M(A)",
+        "role_115": "M(A)",
+        "role_116": "M(A)",
+        "role_117": "M(A)",
+        "role_118": "M(A)",
+        "role_119": "M(A)",
+        "role_120": "M(A)",
+        "role_121": "M(A)",
+        "role_122": "M(A)",
+        "role_123": "M(A)",
+        "role_124": "M(A)",
+        "role_125": "M(A)",
+        "role_126": "M(A)",
+        "role_127": "M(A)",
+        "role_128": "M(A)",
+        "role_129": "M(A)",
+        "role_130": "M(A)",
+        "role_131": "M(A)",
+        "role_132": "M(A)",
+        "role_133": "M(A)",
+        "role_134": "M(A)",
+        "role_135": "M(A)",
+        "role_136": "M(A)",
+        "role_137": "M(A)",
+        "role_138": "M(A)",
+        "role_139": "M(A)",
+        "role_140": "M(A)",
+        "role_141": "M(A)",
+        "role_142": "M(A)",
+        "role_143": "M(A)",
+        "role_144": "M(A)",
+        "role_145": "M(A)",
+        "role_146": "M(A)",
+        "role_147": "M(A)",
+        "role_148": "M(A)",
+        "role_149": "M(A)",
+        "role_150": "M(A)",
+        "role_151": "M(A)",
+        "role_152": "M(A)",
+        "role_153": "M(A)",
+        "role_154": "M(A)",
+        "role_155": "M(A)",
+        "role_156": "M(A)"
+      }
+    },
+    {
+      "id": "comp_210",
+      "name": "Code of Conduct",
+      "category": "",
+      "requirements": {
+        "role_1": "M(A)",
+        "role_2": "M(A)",
+        "role_3": "M(A)",
+        "role_4": "M(A)",
+        "role_5": "M(A)",
+        "role_6": "M(A)",
+        "role_7": "M(A)",
+        "role_8": "M(A)",
+        "role_9": "M(A)",
+        "role_10": "M(A)",
+        "role_11": "M(A)",
+        "role_12": "M(A)",
+        "role_13": "M(A)",
+        "role_14": "M(A)",
+        "role_15": "M(A)",
+        "role_16": "M(A)",
+        "role_17": "M(A)",
+        "role_18": "M(A)",
+        "role_19": "M(A)",
+        "role_20": "M(A)",
+        "role_21": "M(A)",
+        "role_22": "M(A)",
+        "role_23": "M(A)",
+        "role_24": "M(A)",
+        "role_25": "M(A)",
+        "role_26": "M(A)",
+        "role_27": "M(A)",
+        "role_28": "M(A)",
+        "role_29": "M(A)",
+        "role_30": "M(A)",
+        "role_31": "M(A)",
+        "role_32": "M(A)",
+        "role_33": "M(A)",
+        "role_34": "M(A)",
+        "role_35": "M(A)",
+        "role_36": "M(A)",
+        "role_37": "M(A)",
+        "role_38": "M(A)",
+        "role_39": "M(A)",
+        "role_40": "M(A)",
+        "role_41": "M(A)",
+        "role_42": "M(A)",
+        "role_43": "M(A)",
+        "role_44": "M(A)",
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)",
+        "role_49": "M(A)",
+        "role_50": "M(A)",
+        "role_51": "M(A)",
+        "role_52": "M(A)",
+        "role_53": "M(A)",
+        "role_54": "M(A)",
+        "role_55": "M(A)",
+        "role_56": "M(A)",
+        "role_57": "M(A)",
+        "role_58": "M(A)",
+        "role_59": "M(A)",
+        "role_60": "M(A)",
+        "role_61": "M(A)",
+        "role_62": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "M(A)",
+        "role_65": "M(A)",
+        "role_66": "M(A)",
+        "role_67": "M(A)",
+        "role_68": "M(A)",
+        "role_69": "M(A)",
+        "role_70": "M(A)",
+        "role_71": "M(A)",
+        "role_72": "M(A)",
+        "role_73": "M(A)",
+        "role_74": "M(A)",
+        "role_75": "M(A)",
+        "role_76": "M(A)",
+        "role_77": "M(A)",
+        "role_78": "M(A)",
+        "role_79": "M(A)",
+        "role_80": "M(A)",
+        "role_81": "M(A)",
+        "role_82": "M(A)",
+        "role_83": "M(A)",
+        "role_84": "M(A)",
+        "role_85": "M(A)",
+        "role_86": "M(A)",
+        "role_87": "M(A)",
+        "role_88": "M(A)",
+        "role_89": "M(A)",
+        "role_90": "M(A)",
+        "role_91": "M(A)",
+        "role_92": "M(A)",
+        "role_93": "M(A)",
+        "role_94": "M(A)",
+        "role_95": "M(A)",
+        "role_96": "M(A)",
+        "role_97": "M(A)",
+        "role_98": "M(A)",
+        "role_99": "M(A)",
+        "role_100": "M(A)",
+        "role_101": "M(A)",
+        "role_102": "M(A)",
+        "role_103": "M(A)",
+        "role_104": "M(A)",
+        "role_105": "M(A)",
+        "role_106": "M(A)",
+        "role_107": "M(A)",
+        "role_108": "M(A)",
+        "role_109": "M(A)",
+        "role_110": "M(A)",
+        "role_111": "M(A)",
+        "role_112": "M(A)",
+        "role_113": "M(A)",
+        "role_114": "M(A)",
+        "role_115": "M(A)",
+        "role_116": "M(A)",
+        "role_117": "M(A)",
+        "role_118": "M(A)",
+        "role_119": "M(A)",
+        "role_120": "M(A)",
+        "role_121": "M(A)",
+        "role_122": "M(A)",
+        "role_123": "M(A)",
+        "role_124": "M(A)",
+        "role_125": "M(A)",
+        "role_126": "M(A)",
+        "role_127": "M(A)",
+        "role_128": "M(A)",
+        "role_129": "M(A)",
+        "role_130": "M(A)",
+        "role_131": "M(A)",
+        "role_132": "M(A)",
+        "role_133": "M(A)",
+        "role_134": "M(A)",
+        "role_135": "M(A)",
+        "role_136": "M(A)",
+        "role_137": "M(A)",
+        "role_138": "M(A)",
+        "role_139": "M(A)",
+        "role_140": "M(A)",
+        "role_141": "M(A)",
+        "role_142": "M(A)",
+        "role_143": "M(A)",
+        "role_144": "M(A)",
+        "role_145": "M(A)",
+        "role_146": "M(A)",
+        "role_147": "M(A)",
+        "role_148": "M(A)",
+        "role_149": "M(A)",
+        "role_150": "M(A)",
+        "role_151": "M(A)",
+        "role_152": "M(A)",
+        "role_153": "M(A)",
+        "role_154": "M(A)",
+        "role_155": "M(A)",
+        "role_156": "M(A)"
+      }
+    },
+    {
+      "id": "comp_211",
+      "name": "Psycosocial risks to self and others (Bullying, Harrasment, Respect, Work load, Work-life balance)",
+      "category": "",
+      "requirements": {
+        "role_1": "M(A)",
+        "role_2": "M(A)",
+        "role_3": "M(A)",
+        "role_4": "M(A)",
+        "role_5": "M(A)",
+        "role_6": "M(A)",
+        "role_7": "M(A)",
+        "role_8": "M(A)",
+        "role_9": "M(A)",
+        "role_10": "M(A)",
+        "role_11": "M(A)",
+        "role_12": "M(A)",
+        "role_13": "M(A)",
+        "role_14": "M(A)",
+        "role_15": "M(A)",
+        "role_16": "M(A)",
+        "role_17": "M(A)",
+        "role_18": "M(A)",
+        "role_19": "M(A)",
+        "role_20": "M(A)",
+        "role_21": "M(A)",
+        "role_22": "M(A)",
+        "role_23": "M(A)",
+        "role_24": "M(A)",
+        "role_25": "M(A)",
+        "role_26": "M(A)",
+        "role_27": "M(A)",
+        "role_28": "M(A)",
+        "role_29": "M(A)",
+        "role_30": "M(A)",
+        "role_31": "M(A)",
+        "role_32": "M(A)",
+        "role_33": "M(A)",
+        "role_34": "M(A)",
+        "role_35": "M(A)",
+        "role_36": "M(A)",
+        "role_37": "M(A)",
+        "role_38": "M(A)",
+        "role_39": "M(A)",
+        "role_40": "M(A)",
+        "role_41": "M(A)",
+        "role_42": "M(A)",
+        "role_43": "M(A)",
+        "role_44": "M(A)",
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)",
+        "role_49": "M(A)",
+        "role_50": "M(A)",
+        "role_51": "M(A)",
+        "role_52": "M(A)",
+        "role_53": "M(A)",
+        "role_54": "M(A)",
+        "role_55": "M(A)",
+        "role_56": "M(A)",
+        "role_57": "M(A)",
+        "role_58": "M(A)",
+        "role_59": "M(A)",
+        "role_60": "M(A)",
+        "role_61": "M(A)",
+        "role_62": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "M(A)",
+        "role_65": "M(A)",
+        "role_66": "M(A)",
+        "role_67": "M(A)",
+        "role_68": "M(A)",
+        "role_69": "M(A)",
+        "role_70": "M(A)",
+        "role_71": "M(A)",
+        "role_72": "M(A)",
+        "role_73": "M(A)",
+        "role_74": "M(A)",
+        "role_75": "M(A)",
+        "role_76": "M(A)",
+        "role_77": "M(A)",
+        "role_78": "M(A)",
+        "role_79": "M(A)",
+        "role_80": "M(A)",
+        "role_81": "M(A)",
+        "role_82": "M(A)",
+        "role_83": "M(A)",
+        "role_84": "M(A)",
+        "role_85": "M(A)",
+        "role_86": "M(A)",
+        "role_87": "M(A)",
+        "role_88": "M(A)",
+        "role_89": "M(A)",
+        "role_90": "M(A)",
+        "role_91": "M(A)",
+        "role_92": "M(A)",
+        "role_93": "M(A)",
+        "role_94": "M(A)",
+        "role_95": "M(A)",
+        "role_96": "M(A)",
+        "role_97": "M(A)",
+        "role_98": "M(A)",
+        "role_99": "M(A)",
+        "role_100": "M(A)",
+        "role_101": "M(A)",
+        "role_102": "M(A)",
+        "role_103": "M(A)",
+        "role_104": "M(A)",
+        "role_105": "M(A)",
+        "role_106": "M(A)",
+        "role_107": "M(A)",
+        "role_108": "M(A)",
+        "role_109": "M(A)",
+        "role_110": "M(A)",
+        "role_111": "M(A)",
+        "role_112": "M(A)",
+        "role_113": "M(A)",
+        "role_114": "M(A)",
+        "role_115": "M(A)",
+        "role_116": "M(A)",
+        "role_117": "M(A)",
+        "role_118": "M(A)",
+        "role_119": "M(A)",
+        "role_120": "M(A)",
+        "role_121": "M(A)",
+        "role_122": "M(A)",
+        "role_123": "M(A)",
+        "role_124": "M(A)",
+        "role_125": "M(A)",
+        "role_126": "M(A)",
+        "role_127": "M(A)",
+        "role_128": "M(A)",
+        "role_129": "M(A)",
+        "role_130": "M(A)",
+        "role_131": "M(A)",
+        "role_132": "M(A)",
+        "role_133": "M(A)",
+        "role_134": "M(A)",
+        "role_135": "M(A)",
+        "role_136": "M(A)",
+        "role_137": "M(A)",
+        "role_138": "M(A)",
+        "role_139": "M(A)",
+        "role_140": "M(A)",
+        "role_141": "M(A)",
+        "role_142": "M(A)",
+        "role_143": "M(A)",
+        "role_144": "M(A)",
+        "role_145": "M(A)",
+        "role_146": "M(A)",
+        "role_147": "M(A)",
+        "role_148": "M(A)",
+        "role_149": "M(A)",
+        "role_150": "M(A)",
+        "role_151": "M(A)",
+        "role_152": "M(A)",
+        "role_153": "M(A)",
+        "role_154": "M(A)",
+        "role_155": "M(A)",
+        "role_156": "M(A)"
+      }
+    },
+    {
+      "id": "comp_212",
+      "name": "Sexual and Gender Base Harrassment",
+      "category": "",
+      "requirements": {
+        "role_1": "M(A)",
+        "role_2": "M(A)",
+        "role_3": "M(A)",
+        "role_4": "M(A)",
+        "role_5": "M(A)",
+        "role_6": "M(A)",
+        "role_7": "M(A)",
+        "role_8": "M(A)",
+        "role_9": "M(A)",
+        "role_10": "M(A)",
+        "role_11": "M(A)",
+        "role_12": "M(A)",
+        "role_13": "M(A)",
+        "role_14": "M(A)",
+        "role_15": "M(A)",
+        "role_16": "M(A)",
+        "role_17": "M(A)",
+        "role_18": "M(A)",
+        "role_19": "M(A)",
+        "role_20": "M(A)",
+        "role_21": "M(A)",
+        "role_22": "M(A)",
+        "role_23": "M(A)",
+        "role_24": "M(A)",
+        "role_25": "M(A)",
+        "role_26": "M(A)",
+        "role_27": "M(A)",
+        "role_28": "M(A)",
+        "role_29": "M(A)",
+        "role_30": "M(A)",
+        "role_31": "M(A)",
+        "role_32": "M(A)",
+        "role_33": "M(A)",
+        "role_34": "M(A)",
+        "role_35": "M(A)",
+        "role_36": "M(A)",
+        "role_37": "M(A)",
+        "role_38": "M(A)",
+        "role_39": "M(A)",
+        "role_40": "M(A)",
+        "role_41": "M(A)",
+        "role_42": "M(A)",
+        "role_43": "M(A)",
+        "role_44": "M(A)",
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)",
+        "role_49": "M(A)",
+        "role_50": "M(A)",
+        "role_51": "M(A)",
+        "role_52": "M(A)",
+        "role_53": "M(A)",
+        "role_54": "M(A)",
+        "role_55": "M(A)",
+        "role_56": "M(A)",
+        "role_57": "M(A)",
+        "role_58": "M(A)",
+        "role_59": "M(A)",
+        "role_60": "M(A)",
+        "role_61": "M(A)",
+        "role_62": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "M(A)",
+        "role_65": "M(A)",
+        "role_66": "M(A)",
+        "role_67": "M(A)",
+        "role_68": "M(A)",
+        "role_69": "M(A)",
+        "role_70": "M(A)",
+        "role_71": "M(A)",
+        "role_72": "M(A)",
+        "role_73": "M(A)",
+        "role_74": "M(A)",
+        "role_75": "M(A)",
+        "role_76": "M(A)",
+        "role_77": "M(A)",
+        "role_78": "M(A)",
+        "role_79": "M(A)",
+        "role_80": "M(A)",
+        "role_81": "M(A)",
+        "role_82": "M(A)",
+        "role_83": "M(A)",
+        "role_84": "M(A)",
+        "role_85": "M(A)",
+        "role_86": "M(A)",
+        "role_87": "M(A)",
+        "role_88": "M(A)",
+        "role_89": "M(A)",
+        "role_90": "M(A)",
+        "role_91": "M(A)",
+        "role_92": "M(A)",
+        "role_93": "M(A)",
+        "role_94": "M(A)",
+        "role_95": "M(A)",
+        "role_96": "M(A)",
+        "role_97": "M(A)",
+        "role_98": "M(A)",
+        "role_99": "M(A)",
+        "role_100": "M(A)",
+        "role_101": "M(A)",
+        "role_102": "M(A)",
+        "role_103": "M(A)",
+        "role_104": "M(A)",
+        "role_105": "M(A)",
+        "role_106": "M(A)",
+        "role_107": "M(A)",
+        "role_108": "M(A)",
+        "role_109": "M(A)",
+        "role_110": "M(A)",
+        "role_111": "M(A)",
+        "role_112": "M(A)",
+        "role_113": "M(A)",
+        "role_114": "M(A)",
+        "role_115": "M(A)",
+        "role_116": "M(A)",
+        "role_117": "M(A)",
+        "role_118": "M(A)",
+        "role_119": "M(A)",
+        "role_120": "M(A)",
+        "role_121": "M(A)",
+        "role_122": "M(A)",
+        "role_123": "M(A)",
+        "role_124": "M(A)",
+        "role_125": "M(A)",
+        "role_126": "M(A)",
+        "role_127": "M(A)",
+        "role_128": "M(A)",
+        "role_129": "M(A)",
+        "role_130": "M(A)",
+        "role_131": "M(A)",
+        "role_132": "M(A)",
+        "role_133": "M(A)",
+        "role_134": "M(A)",
+        "role_135": "M(A)",
+        "role_136": "M(A)",
+        "role_137": "M(A)",
+        "role_138": "M(A)",
+        "role_139": "M(A)",
+        "role_140": "M(A)",
+        "role_141": "M(A)",
+        "role_142": "M(A)",
+        "role_143": "M(A)",
+        "role_144": "M(A)",
+        "role_145": "M(A)",
+        "role_146": "M(A)",
+        "role_147": "M(A)",
+        "role_148": "M(A)",
+        "role_149": "M(A)",
+        "role_150": "M(A)",
+        "role_151": "M(A)",
+        "role_152": "M(A)",
+        "role_153": "M(A)",
+        "role_154": "M(A)",
+        "role_155": "M(A)",
+        "role_156": "M(A)"
+      }
+    },
+    {
+      "id": "comp_213",
+      "name": "Manual lifting / Hazardous Manual task",
+      "category": "",
+      "requirements": {
+        "role_1": "M(A)",
+        "role_2": "M(A)",
+        "role_3": "M(A)",
+        "role_4": "M(A)",
+        "role_5": "M(A)",
+        "role_6": "M(A)",
+        "role_7": "M(A)",
+        "role_8": "M(A)",
+        "role_9": "M(A)",
+        "role_10": "M(A)",
+        "role_11": "M(A)",
+        "role_12": "M(A)",
+        "role_13": "M(A)",
+        "role_14": "M(A)",
+        "role_15": "M(A)",
+        "role_16": "M(A)",
+        "role_17": "M(A)",
+        "role_18": "M(A)",
+        "role_19": "M(A)",
+        "role_20": "M(A)",
+        "role_21": "M(A)",
+        "role_22": "M(A)",
+        "role_23": "M(A)",
+        "role_24": "M(A)",
+        "role_25": "M(A)",
+        "role_26": "M(A)",
+        "role_27": "M(A)",
+        "role_28": "M(A)",
+        "role_29": "M(A)",
+        "role_30": "M(A)",
+        "role_31": "M(A)",
+        "role_32": "M(A)",
+        "role_33": "M(A)",
+        "role_34": "M(A)",
+        "role_35": "M(A)",
+        "role_36": "M(A)",
+        "role_37": "M(A)",
+        "role_38": "M(A)",
+        "role_39": "M(A)",
+        "role_40": "M(A)",
+        "role_41": "M(A)",
+        "role_42": "M(A)",
+        "role_43": "M(A)",
+        "role_44": "M(A)",
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)",
+        "role_49": "M(A)",
+        "role_50": "M(A)",
+        "role_51": "M(A)",
+        "role_52": "M(A)",
+        "role_53": "M(A)",
+        "role_54": "M(A)",
+        "role_55": "M(A)",
+        "role_56": "M(A)",
+        "role_57": "M(A)",
+        "role_58": "M(A)",
+        "role_59": "M(A)",
+        "role_60": "M(A)",
+        "role_61": "M(A)",
+        "role_62": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "M(A)",
+        "role_65": "M(A)",
+        "role_66": "M(A)",
+        "role_67": "M(A)",
+        "role_68": "M(A)",
+        "role_69": "M(A)",
+        "role_70": "M(A)",
+        "role_71": "M(A)",
+        "role_72": "M(A)",
+        "role_73": "M(A)",
+        "role_74": "M(A)",
+        "role_75": "M(A)",
+        "role_76": "M(A)",
+        "role_77": "M(A)",
+        "role_78": "M(A)",
+        "role_79": "M(A)",
+        "role_80": "M(A)",
+        "role_81": "M(A)",
+        "role_82": "M(A)",
+        "role_83": "M(A)",
+        "role_84": "M(A)",
+        "role_85": "M(A)",
+        "role_86": "M(A)",
+        "role_87": "M(A)",
+        "role_88": "M(A)",
+        "role_89": "M(A)",
+        "role_90": "M(A)",
+        "role_91": "M(A)",
+        "role_92": "M(A)",
+        "role_93": "M(A)",
+        "role_94": "M(A)",
+        "role_95": "M(A)",
+        "role_96": "M(A)",
+        "role_97": "M(A)",
+        "role_98": "M(A)",
+        "role_99": "M(A)",
+        "role_100": "M(A)",
+        "role_101": "M(A)",
+        "role_102": "M(A)",
+        "role_103": "M(A)",
+        "role_104": "M(A)",
+        "role_105": "M(A)",
+        "role_106": "M(A)",
+        "role_107": "M(A)",
+        "role_108": "M(A)",
+        "role_109": "M(A)",
+        "role_110": "M(A)",
+        "role_111": "M(A)",
+        "role_112": "M(A)",
+        "role_113": "M(A)",
+        "role_114": "M(A)",
+        "role_115": "M(A)",
+        "role_116": "M(A)",
+        "role_117": "M(A)",
+        "role_118": "M(A)",
+        "role_119": "M(A)",
+        "role_120": "M(A)",
+        "role_121": "M(A)",
+        "role_122": "M(A)",
+        "role_123": "M(A)",
+        "role_124": "M(A)",
+        "role_125": "M(A)",
+        "role_126": "M(A)",
+        "role_127": "M(A)",
+        "role_128": "M(A)",
+        "role_129": "M(A)",
+        "role_130": "M(A)",
+        "role_131": "M(A)",
+        "role_132": "M(A)",
+        "role_133": "M(A)",
+        "role_134": "M(A)",
+        "role_135": "M(A)",
+        "role_136": "M(A)",
+        "role_137": "M(A)",
+        "role_138": "M(A)",
+        "role_139": "M(A)",
+        "role_140": "M(A)",
+        "role_141": "M(A)",
+        "role_142": "M(A)",
+        "role_143": "M(A)",
+        "role_144": "M(A)",
+        "role_145": "M(A)",
+        "role_146": "M(A)",
+        "role_147": "M(A)",
+        "role_148": "M(A)",
+        "role_149": "M(A)",
+        "role_150": "M(A)",
+        "role_151": "M(A)",
+        "role_152": "M(A)",
+        "role_153": "M(A)",
+        "role_154": "M(A)",
+        "role_155": "M(A)",
+        "role_156": "M(A)"
+      }
+    },
+    {
+      "id": "comp_214",
+      "name": "Work Station Setup",
+      "category": "",
+      "requirements": {
+        "role_1": "M(A)",
+        "role_2": "M(A)",
+        "role_3": "M(A)",
+        "role_4": "M(A)",
+        "role_5": "M(A)",
+        "role_6": "M(A)",
+        "role_7": "M(A)",
+        "role_8": "M(A)",
+        "role_9": "M(A)",
+        "role_10": "M(A)",
+        "role_11": "M(A)",
+        "role_12": "M(A)",
+        "role_13": "M(A)",
+        "role_14": "M(A)",
+        "role_15": "M(A)",
+        "role_16": "M(A)",
+        "role_17": "M(A)",
+        "role_18": "M(A)",
+        "role_19": "M(A)",
+        "role_20": "M(A)",
+        "role_21": "M(A)",
+        "role_22": "M(A)",
+        "role_23": "M(A)",
+        "role_24": "M(A)",
+        "role_25": "M(A)",
+        "role_26": "M(A)",
+        "role_27": "M(A)",
+        "role_28": "M(A)",
+        "role_29": "M(A)",
+        "role_30": "M(A)",
+        "role_31": "M(A)",
+        "role_32": "M(A)",
+        "role_33": "M(A)",
+        "role_34": "M(A)",
+        "role_35": "M(A)",
+        "role_36": "M(A)",
+        "role_37": "M(A)",
+        "role_38": "M(A)",
+        "role_39": "M(A)",
+        "role_40": "M(A)",
+        "role_41": "M(A)",
+        "role_42": "M(A)",
+        "role_43": "M(A)",
+        "role_44": "M(A)",
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)",
+        "role_49": "M(A)",
+        "role_50": "M(A)",
+        "role_51": "M(A)",
+        "role_52": "M(A)",
+        "role_53": "M(A)",
+        "role_54": "M(A)",
+        "role_55": "M(A)",
+        "role_56": "M(A)",
+        "role_57": "M(A)",
+        "role_58": "M(A)",
+        "role_59": "M(A)",
+        "role_60": "M(A)",
+        "role_61": "M(A)",
+        "role_62": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "M(A)",
+        "role_65": "M(A)",
+        "role_66": "M(A)",
+        "role_67": "M(A)",
+        "role_68": "M(A)",
+        "role_69": "M(A)",
+        "role_70": "M(A)",
+        "role_71": "M(A)",
+        "role_72": "M(A)",
+        "role_73": "M(A)",
+        "role_74": "M(A)",
+        "role_75": "M(A)",
+        "role_76": "M(A)",
+        "role_77": "M(A)",
+        "role_78": "M(A)",
+        "role_79": "M(A)",
+        "role_80": "M(A)",
+        "role_81": "M(A)",
+        "role_82": "M(A)",
+        "role_83": "M(A)",
+        "role_84": "M(A)",
+        "role_85": "M(A)",
+        "role_86": "M(A)",
+        "role_87": "M(A)",
+        "role_88": "M(A)",
+        "role_89": "M(A)",
+        "role_90": "M(A)",
+        "role_91": "M(A)",
+        "role_92": "M(A)",
+        "role_93": "M(A)",
+        "role_94": "M(A)",
+        "role_95": "M(A)",
+        "role_96": "M(A)",
+        "role_97": "M(A)",
+        "role_98": "M(A)",
+        "role_99": "M(A)",
+        "role_100": "M(A)",
+        "role_101": "M(A)",
+        "role_102": "M(A)",
+        "role_103": "M(A)",
+        "role_104": "M(A)",
+        "role_105": "M(A)",
+        "role_106": "M(A)",
+        "role_107": "M(A)",
+        "role_108": "M(A)",
+        "role_109": "M(A)",
+        "role_110": "M(A)",
+        "role_111": "M(A)",
+        "role_112": "M(A)",
+        "role_113": "M(A)",
+        "role_114": "M(A)",
+        "role_115": "M(A)",
+        "role_116": "M(A)",
+        "role_117": "M(A)",
+        "role_118": "M(A)",
+        "role_119": "M(A)",
+        "role_120": "M(A)",
+        "role_121": "M(A)",
+        "role_122": "M(A)",
+        "role_123": "M(A)",
+        "role_124": "M(A)",
+        "role_125": "M(A)",
+        "role_126": "M(A)",
+        "role_127": "M(A)",
+        "role_128": "M(A)",
+        "role_129": "M(A)",
+        "role_130": "M(A)",
+        "role_131": "M(A)",
+        "role_132": "M(A)",
+        "role_133": "M(A)",
+        "role_134": "M(A)",
+        "role_135": "M(A)",
+        "role_136": "M(A)",
+        "role_137": "M(A)",
+        "role_138": "M(A)",
+        "role_139": "M(A)",
+        "role_140": "M(A)",
+        "role_141": "M(A)",
+        "role_142": "M(A)",
+        "role_143": "M(A)",
+        "role_144": "M(A)",
+        "role_145": "M(A)",
+        "role_146": "M(A)",
+        "role_147": "M(A)",
+        "role_148": "M(A)",
+        "role_149": "M(A)",
+        "role_150": "M(A)",
+        "role_151": "M(A)",
+        "role_152": "M(A)",
+        "role_153": "M(A)",
+        "role_154": "M(A)",
+        "role_155": "M(A)",
+        "role_156": "M(A)"
+      }
+    },
+    {
+      "id": "comp_215",
+      "name": "Cultural Heritage Awareness",
+      "category": "",
+      "requirements": {
+        "role_1": "M(A)",
+        "role_2": "M(A)",
+        "role_3": "M(A)",
+        "role_4": "M(A)",
+        "role_5": "M(A)",
+        "role_6": "M(A)",
+        "role_7": "M(A)",
+        "role_8": "M(A)",
+        "role_9": "M(A)",
+        "role_10": "M(A)",
+        "role_11": "M(A)",
+        "role_12": "M(A)",
+        "role_13": "M(A)",
+        "role_14": "M(A)",
+        "role_15": "M(A)",
+        "role_16": "M(A)",
+        "role_17": "M(A)",
+        "role_18": "M(A)",
+        "role_19": "M(A)",
+        "role_20": "M(A)",
+        "role_21": "M(A)",
+        "role_22": "M(A)",
+        "role_23": "M(A)",
+        "role_24": "M(A)",
+        "role_25": "M(A)",
+        "role_26": "M(A)",
+        "role_27": "M(A)",
+        "role_28": "M(A)",
+        "role_29": "M(A)",
+        "role_30": "M(A)",
+        "role_31": "M(A)",
+        "role_32": "M(A)",
+        "role_33": "M(A)",
+        "role_34": "M(A)",
+        "role_35": "M(A)",
+        "role_36": "M(A)",
+        "role_37": "M(A)",
+        "role_38": "M(A)",
+        "role_39": "M(A)",
+        "role_40": "M(A)",
+        "role_41": "M(A)",
+        "role_42": "M(A)",
+        "role_43": "M(A)",
+        "role_44": "M(A)",
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)",
+        "role_49": "M(A)",
+        "role_50": "M(A)",
+        "role_51": "M(A)",
+        "role_52": "M(A)",
+        "role_53": "M(A)",
+        "role_54": "M(A)",
+        "role_55": "M(A)",
+        "role_56": "M(A)",
+        "role_57": "M(A)",
+        "role_58": "M(A)",
+        "role_59": "M(A)",
+        "role_60": "M(A)",
+        "role_61": "M(A)",
+        "role_62": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "M(A)",
+        "role_65": "M(A)",
+        "role_66": "M(A)",
+        "role_67": "M(A)",
+        "role_68": "M(A)",
+        "role_69": "M(A)",
+        "role_70": "M(A)",
+        "role_71": "M(A)",
+        "role_72": "M(A)",
+        "role_73": "M(A)",
+        "role_74": "M(A)",
+        "role_75": "M(A)",
+        "role_76": "M(A)",
+        "role_77": "M(A)",
+        "role_78": "M(A)",
+        "role_79": "M(A)",
+        "role_80": "M(A)",
+        "role_81": "M(A)",
+        "role_82": "M(A)",
+        "role_83": "M(A)",
+        "role_84": "M(A)",
+        "role_85": "M(A)",
+        "role_86": "M(A)",
+        "role_87": "M(A)",
+        "role_88": "M(A)",
+        "role_89": "M(A)",
+        "role_90": "M(A)",
+        "role_91": "M(A)",
+        "role_92": "M(A)",
+        "role_93": "M(A)",
+        "role_94": "M(A)",
+        "role_95": "M(A)",
+        "role_96": "M(A)",
+        "role_97": "M(A)",
+        "role_98": "M(A)",
+        "role_99": "M(A)",
+        "role_100": "M(A)",
+        "role_101": "M(A)",
+        "role_102": "M(A)",
+        "role_103": "M(A)",
+        "role_104": "M(A)",
+        "role_105": "M(A)",
+        "role_106": "M(A)",
+        "role_107": "M(A)",
+        "role_108": "M(A)",
+        "role_109": "M(A)",
+        "role_110": "M(A)",
+        "role_111": "M(A)",
+        "role_112": "M(A)",
+        "role_113": "M(A)",
+        "role_114": "M(A)",
+        "role_115": "M(A)",
+        "role_116": "M(A)",
+        "role_117": "M(A)",
+        "role_118": "M(A)",
+        "role_119": "M(A)",
+        "role_120": "M(A)",
+        "role_121": "M(A)",
+        "role_122": "M(A)",
+        "role_123": "M(A)",
+        "role_124": "M(A)",
+        "role_125": "M(A)",
+        "role_126": "M(A)",
+        "role_127": "M(A)",
+        "role_128": "M(A)",
+        "role_129": "M(A)",
+        "role_130": "M(A)",
+        "role_131": "M(A)",
+        "role_132": "M(A)",
+        "role_133": "M(A)",
+        "role_134": "M(A)",
+        "role_135": "M(A)",
+        "role_136": "M(A)",
+        "role_137": "M(A)",
+        "role_138": "M(A)",
+        "role_139": "M(A)",
+        "role_140": "M(A)",
+        "role_141": "M(A)",
+        "role_142": "M(A)",
+        "role_143": "M(A)",
+        "role_144": "M(A)",
+        "role_145": "M(A)",
+        "role_146": "M(A)",
+        "role_147": "M(A)",
+        "role_148": "M(A)",
+        "role_149": "M(A)",
+        "role_150": "M(A)",
+        "role_151": "M(A)",
+        "role_152": "M(A)",
+        "role_153": "M(A)",
+        "role_154": "M(A)",
+        "role_155": "M(A)",
+        "role_156": "M(A)"
+      }
+    },
+    {
+      "id": "comp_216",
+      "name": "Procurement",
+      "category": "",
+      "requirements": {
+        "role_1": "M(A)",
+        "role_2": "M(A)",
+        "role_3": "M(A)",
+        "role_4": "M(A)",
+        "role_5": "M(A)",
+        "role_6": "M(A)",
+        "role_7": "M(A)",
+        "role_8": "M(A)",
+        "role_9": "M(A)",
+        "role_10": "M(A)",
+        "role_11": "M(A)",
+        "role_12": "M(A)",
+        "role_13": "M(A)",
+        "role_14": "M(A)",
+        "role_15": "M(A)",
+        "role_16": "M(A)",
+        "role_17": "M(A)",
+        "role_18": "M(A)",
+        "role_19": "M(A)",
+        "role_20": "M(A)",
+        "role_21": "M(A)",
+        "role_22": "M(A)",
+        "role_23": "M(A)",
+        "role_24": "M(A)",
+        "role_25": "M(A)",
+        "role_26": "M(A)",
+        "role_27": "M(A)",
+        "role_28": "M(A)",
+        "role_29": "M(A)",
+        "role_30": "M(A)",
+        "role_31": "M(A)",
+        "role_32": "M(A)",
+        "role_33": "M(A)",
+        "role_34": "M(A)",
+        "role_35": "M(A)",
+        "role_36": "M(A)",
+        "role_37": "M(A)",
+        "role_38": "M(A)",
+        "role_39": "M(A)",
+        "role_40": "M(A)",
+        "role_41": "M(A)",
+        "role_42": "M(A)",
+        "role_43": "M(A)",
+        "role_44": "M(A)",
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)",
+        "role_49": "M(A)",
+        "role_50": "M(A)",
+        "role_51": "M(A)",
+        "role_52": "M(A)",
+        "role_53": "M(A)",
+        "role_54": "M(A)",
+        "role_55": "M(A)",
+        "role_56": "M(A)",
+        "role_57": "M(A)",
+        "role_58": "M(A)",
+        "role_59": "M(A)",
+        "role_60": "M(A)",
+        "role_61": "M(A)",
+        "role_62": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "M(A)",
+        "role_65": "M(A)",
+        "role_66": "M(A)",
+        "role_67": "M(A)",
+        "role_68": "M(A)",
+        "role_69": "M(A)",
+        "role_70": "M(A)",
+        "role_71": "M(A)",
+        "role_72": "M(A)",
+        "role_73": "M(A)",
+        "role_74": "M(A)",
+        "role_75": "M(A)",
+        "role_76": "M(A)",
+        "role_77": "M(A)",
+        "role_78": "M(A)",
+        "role_79": "M(A)",
+        "role_80": "M(A)",
+        "role_81": "M(A)",
+        "role_82": "M(A)",
+        "role_83": "M(A)",
+        "role_84": "M(A)",
+        "role_85": "M(A)",
+        "role_86": "M(A)",
+        "role_87": "M(A)",
+        "role_88": "M(A)",
+        "role_89": "M(A)",
+        "role_90": "M(A)",
+        "role_91": "M(A)",
+        "role_92": "M(A)",
+        "role_93": "M(A)",
+        "role_94": "M(A)",
+        "role_95": "M(A)",
+        "role_96": "M(A)",
+        "role_97": "M(A)",
+        "role_98": "M(A)",
+        "role_99": "M(A)",
+        "role_100": "M(A)",
+        "role_101": "M(A)",
+        "role_102": "M(A)",
+        "role_103": "M(A)",
+        "role_104": "M(A)",
+        "role_105": "M(A)",
+        "role_106": "M(A)",
+        "role_107": "M(A)",
+        "role_108": "M(A)",
+        "role_109": "M(A)",
+        "role_110": "M(A)",
+        "role_111": "M(A)",
+        "role_112": "M(A)",
+        "role_113": "M(A)",
+        "role_114": "M(A)",
+        "role_115": "M(A)",
+        "role_116": "M(A)",
+        "role_117": "M(A)",
+        "role_118": "M(A)",
+        "role_119": "M(A)",
+        "role_120": "M(A)",
+        "role_121": "M(A)",
+        "role_122": "M(A)",
+        "role_123": "M(A)",
+        "role_124": "M(A)",
+        "role_125": "M(A)",
+        "role_126": "M(A)",
+        "role_127": "M(A)",
+        "role_128": "M(A)",
+        "role_129": "M(A)",
+        "role_130": "M(A)",
+        "role_131": "M(A)",
+        "role_132": "M(A)",
+        "role_133": "M(A)",
+        "role_134": "M(A)",
+        "role_135": "M(A)",
+        "role_136": "M(A)",
+        "role_137": "M(A)",
+        "role_138": "M(A)",
+        "role_139": "M(A)",
+        "role_140": "M(A)",
+        "role_141": "M(A)",
+        "role_142": "M(A)",
+        "role_143": "M(A)",
+        "role_144": "M(A)",
+        "role_145": "M(A)",
+        "role_146": "M(A)",
+        "role_147": "M(A)",
+        "role_148": "M(A)",
+        "role_149": "M(A)",
+        "role_150": "M(A)",
+        "role_151": "M(A)",
+        "role_152": "M(A)",
+        "role_153": "M(A)",
+        "role_154": "M(A)",
+        "role_155": "M(A)",
+        "role_156": "M(A)"
+      }
+    },
+    {
+      "id": "comp_218",
+      "name": "Risk Management",
+      "category": "",
+      "requirements": {
+        "role_87": "D(A)",
+        "role_88": "M(A)",
+        "role_152": "M(A)",
+        "role_154": "M(A)"
+      }
+    },
+    {
+      "id": "comp_219",
+      "name": "Record keeping requiements",
+      "category": "",
+      "requirements": {
+        "role_1": "M(A)",
+        "role_150": "M(A)",
+        "role_151": "M(A)",
+        "role_152": "D(A)",
+        "role_153": "D(A)"
+      }
+    },
+    {
+      "id": "comp_220",
+      "name": "Project Management",
+      "category": "",
+      "requirements": {
+        "role_74": "D(A)",
+        "role_85": "M(A)",
+        "role_98": "M(A)",
+        "role_154": "M(A)"
+      }
+    },
+    {
+      "id": "comp_221",
+      "name": "Technical communication skills eg report writing/ specification writing",
+      "category": "",
+      "requirements": {
+        "role_71": "M(A)",
+        "role_74": "D(A)",
+        "role_75": "M(A)",
+        "role_76": "M(A)",
+        "role_77": "M(A)",
+        "role_79": "D(A)",
+        "role_84": "M(A)",
+        "role_87": "M(A)",
+        "role_91": "M(A)",
+        "role_98": "M(A)",
+        "role_148": "M(A)",
+        "role_151": "M(A)",
+        "role_154": "M(A)",
+        "role_155": "M(A)"
+      }
+    },
+    {
+      "id": "comp_222",
+      "name": "Contract Managment Training",
+      "category": "",
+      "requirements": {
+        "role_75": "M(A)"
+      }
+    },
+    {
+      "id": "comp_225",
+      "name": "Effective customers interactions/Customer Service",
+      "category": "",
+      "requirements": {
+        "role_1": "M(A)",
+        "role_45": "D(A)",
+        "role_47": "D(A)",
+        "role_65": "D(A)",
+        "role_66": "D(A)",
+        "role_67": "M(A)",
+        "role_73": "M(A)",
+        "role_81": "M(A)",
+        "role_83": "M(A)",
+        "role_86": "M(A)",
+        "role_87": "M(A)",
+        "role_88": "M(A)",
+        "role_89": "M(A)",
+        "role_90": "D(A)",
+        "role_93": "M(A)",
+        "role_97": "M(A)",
+        "role_98": "D(A)",
+        "role_100": "M(A)",
+        "role_102": "M(A)",
+        "role_104": "D(A)",
+        "role_153": "D(A)",
+        "role_154": "M(A)"
+      }
+    },
+    {
+      "id": "comp_227",
+      "name": "Supervisor training",
+      "category": "",
+      "requirements": {
+        "role_60": "M(A)",
+        "role_63": "M(A)",
+        "role_64": "M(A)",
+        "role_76": "D(A)",
+        "role_77": "M(A)"
+      }
+    },
+    {
+      "id": "comp_228",
+      "name": "Budgets",
+      "category": "",
+      "requirements": {
+        "role_63": "M(A)",
+        "role_67": "D(A)",
+        "role_68": "M(A)",
+        "role_69": "M(A)",
+        "role_70": "M(A)",
+        "role_71": "M(A)",
+        "role_73": "M(A)",
+        "role_74": "M(A)",
+        "role_76": "M(A)",
+        "role_77": "M(A)",
+        "role_83": "M(A)",
+        "role_98": "M(A)"
+      }
+    },
+    {
+      "id": "comp_229",
+      "name": "IT Skills",
+      "category": "",
+      "requirements": {
+        "role_45": "M(A)",
+        "role_46": "M(A)",
+        "role_47": "M(A)",
+        "role_48": "M(A)",
+        "role_60": "D(A)",
+        "role_64": "M(A)",
+        "role_65": "M(A)",
+        "role_66": "M(A)",
+        "role_67": "M(A)",
+        "role_68": "M(A)",
+        "role_69": "M(A)",
+        "role_70": "M(A)",
+        "role_71": "M(A)",
+        "role_73": "M(A)",
+        "role_74": "M(A)",
+        "role_75": "M(A)",
+        "role_76": "M(A)",
+        "role_78": "M(A)",
+        "role_79": "M(A)",
+        "role_80": "M(A)",
+        "role_81": "M(A)",
+        "role_83": "M(A)",
+        "role_84": "M(A)",
+        "role_85": "M(A)",
+        "role_87": "M(A)",
+        "role_88": "M(A)",
+        "role_89": "M(A)",
+        "role_90": "M(A)",
+        "role_91": "M(A)",
+        "role_93": "M(A)",
+        "role_98": "M(A)",
+        "role_103": "M(A)",
+        "role_104": "D(A)",
+        "role_105": "M(A)",
+        "role_107": "M(A)",
+        "role_148": "M(A)",
+        "role_150": "M(A)",
+        "role_151": "M(A)",
+        "role_152": "D(A)",
+        "role_153": "M(A)",
+        "role_154": "M(A)",
+        "role_155": "M(A)"
+      }
+    }
+  ],
+  "legend": {
+    "M(A)": "Mandatory (All)",
+    "M(S)": "Mandatory (Specific)",
+    "D(A)": "Desirable (All)",
+    "D(S)": "Desirable (Specific)"
+  }
+};
+
+        function Modal({ isOpen, onClose, title, children, size = 'md' }) {
+            if (!isOpen) return null;
+            const sizeClasses = {
+                'sm': 'max-w-md',
+                'md': 'max-w-2xl',
+                'lg': 'max-w-4xl',
+                'xl': 'max-w-6xl'
+            };
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+                    <div className={`bg-white rounded-lg shadow-xl p-6 ${sizeClasses[size]} w-full max-h-[90vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold">{title}</h3>
+                            <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                        </div>
+                        {children}
+                    </div>
+                </div>
+            );
+        }
+
+        function CourseModal({ isOpen, onClose, onSave, existingCourse }) {
+            const [formData, setFormData] = useState({
+                name: '',
+                providerType: 'external',
+                provider: '',
+                recertificationMonths: '',
+                internalVerificationAllowed: false,
+                internalVerifier: '',
+                cost: '',
+                duration: '',
+                notes: ''
+            });
+
+            useEffect(() => {
+                if (existingCourse) {
+                    setFormData(existingCourse);
+                } else {
+                    setFormData({
+                        name: '',
+                        providerType: 'external',
+                        provider: '',
+                        recertificationMonths: '',
+                        internalVerificationAllowed: false,
+                        internalVerifier: '',
+                        cost: '',
+                        duration: '',
+                        notes: ''
+                    });
+                }
+            }, [existingCourse, isOpen]);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                onSave({
+                    ...formData,
+                    id: existingCourse?.id || 'course_' + Date.now(),
+                    recertificationMonths: formData.recertificationMonths ? parseInt(formData.recertificationMonths) : null,
+                    cost: formData.cost ? parseFloat(formData.cost) : 0
+                });
+                onClose();
+            };
+
+            return (
+                <Modal isOpen={isOpen} onClose={onClose} title={existingCourse ? 'Edit Course' : 'Add New Course'} size="lg">
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium mb-1">Course Name *</label>
+                                <input
+                                    type="text"
+                                    required
+                                    className="w-full px-3 py-2 border rounded-lg"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Provider Type *</label>
+                                <select
+                                    required
+                                    className="w-full px-3 py-2 border rounded-lg"
+                                    value={formData.providerType}
+                                    onChange={(e) => setFormData({...formData, providerType: e.target.value})}
+                                >
+                                    <option value="internal">Internal</option>
+                                    <option value="external">External</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Provider Name *</label>
+                                <input
+                                    type="text"
+                                    required
+                                    className="w-full px-3 py-2 border rounded-lg"
+                                    value={formData.provider}
+                                    onChange={(e) => setFormData({...formData, provider: e.target.value})}
+                                    placeholder={formData.providerType === 'internal' ? 'Cook Shire Council' : 'External Provider'}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Recertification Period (months)</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    className="w-full px-3 py-2 border rounded-lg"
+                                    value={formData.recertificationMonths}
+                                    onChange={(e) => setFormData({...formData, recertificationMonths: e.target.value})}
+                                    placeholder="Leave blank if no expiry"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Duration</label>
+                                <input
+                                    type="text"
+                                    className="w-full px-3 py-2 border rounded-lg"
+                                    value={formData.duration}
+                                    onChange={(e) => setFormData({...formData, duration: e.target.value})}
+                                    placeholder="e.g., 2 days, 4 hours"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Cost ($)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    className="w-full px-3 py-2 border rounded-lg"
+                                    value={formData.cost}
+                                    onChange={(e) => setFormData({...formData, cost: e.target.value})}
+                                />
+                            </div>
+
+                            <div className="md:col-span-2">
+                                <label className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        className="w-4 h-4"
+                                        checked={formData.internalVerificationAllowed}
+                                        onChange={(e) => setFormData({...formData, internalVerificationAllowed: e.target.checked})}
+                                    />
+                                    <span className="text-sm font-medium">Allow Internal Verification</span>
+                                </label>
+                            </div>
+
+                            {formData.internalVerificationAllowed && (
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium mb-1">Internal Verifier Role</label>
+                                    <input
+                                        type="text"
+                                        className="w-full px-3 py-2 border rounded-lg"
+                                        value={formData.internalVerifier}
+                                        onChange={(e) => setFormData({...formData, internalVerifier: e.target.value})}
+                                        placeholder="e.g., WHS Manager, Workshop Foreman"
+                                    />
+                                </div>
+                            )}
+
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium mb-1">Notes</label>
+                                <textarea
+                                    className="w-full px-3 py-2 border rounded-lg"
+                                    rows="3"
+                                    value={formData.notes}
+                                    onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button type="submit" className="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                                {existingCourse ? 'Update Course' : 'Add Course'}
+                            </button>
+                            <button type="button" onClick={onClose} className="flex-1 bg-gray-300 px-4 py-2 rounded-lg hover:bg-gray-400">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
+            );
+        }
+
+        function TrainingRecordModal({ isOpen, onClose, onSave, person, competency, existingRecord, courses }) {
+            const [formData, setFormData] = useState({
+                courseId: '',
+                completedDate: '',
+                expiryDate: '',
+                provider: '',
+                notes: '',
+                certificateNumber: '',
+                verifiedBy: '',
+                verificationDate: ''
+            });
+
+            useEffect(() => {
+                if (existingRecord) {
+                    setFormData(existingRecord);
+                } else {
+                    setFormData({
+                        courseId: '',
+                        completedDate: '',
+                        expiryDate: '',
+                        provider: '',
+                        notes: '',
+                        certificateNumber: '',
+                        verifiedBy: '',
+                        verificationDate: ''
+                    });
+                }
+            }, [existingRecord, isOpen]);
+
+            const selectedCourse = courses.find(c => c.id === formData.courseId);
+
+            const handleCourseChange = (courseId) => {
+                const course = courses.find(c => c.id === courseId);
+                if (course) {
+                    const updates = {
+                        courseId,
+                        provider: course.provider
+                    };
+                    
+                    // Auto-calculate expiry if recertification period is set
+                    if (course.recertificationMonths && formData.completedDate) {
+                        const completed = new Date(formData.completedDate);
+                        const expiry = new Date(completed);
+                        expiry.setMonth(expiry.getMonth() + course.recertificationMonths);
+                        updates.expiryDate = expiry.toISOString().split('T')[0];
+                    }
+                    
+                    setFormData({...formData, ...updates});
+                } else {
+                    setFormData({...formData, courseId});
+                }
+            };
+
+            const handleCompletedDateChange = (date) => {
+                const updates = { completedDate: date };
+                
+                if (selectedCourse?.recertificationMonths) {
+                    const completed = new Date(date);
+                    const expiry = new Date(completed);
+                    expiry.setMonth(expiry.getMonth() + selectedCourse.recertificationMonths);
+                    updates.expiryDate = expiry.toISOString().split('T')[0];
+                }
+                
+                setFormData({...formData, ...updates});
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                onSave({
+                    personId: person.id,
+                    competencyId: competency.id,
+                    ...formData,
+                    recordId: existingRecord?.recordId || 'r' + Date.now()
+                });
+                onClose();
+            };
+
+            if (!isOpen) return null;
+
+            return (
+                <Modal isOpen={isOpen} onClose={onClose} title="Training Record" size="lg">
+                    <div className="mb-4">
+                        <p className="text-sm"><strong>Person:</strong> {person?.name}</p>
+                        <p className="text-sm"><strong>Training:</strong> {competency?.name}</p>
+                    </div>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Select Course *</label>
+                            <select
+                                required
+                                className="w-full px-3 py-2 border rounded-lg"
+                                value={formData.courseId}
+                                onChange={(e) => handleCourseChange(e.target.value)}
+                            >
+                                <option value="">Choose a course...</option>
+                                {courses.map(course => (
+                                    <option key={course.id} value={course.id}>
+                                        {course.name} ({course.providerType === 'internal' ? 'Internal' : 'External'})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {selectedCourse && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                                <p><strong>Provider:</strong> {selectedCourse.provider}</p>
+                                <p><strong>Duration:</strong> {selectedCourse.duration}</p>
+                                {selectedCourse.recertificationMonths && (
+                                    <p><strong>Recertification:</strong> Every {selectedCourse.recertificationMonths} months</p>
+                                )}
+                                {selectedCourse.internalVerificationAllowed && (
+                                    <p className="text-green-700"><strong>✓ Internal verification allowed</strong> ({selectedCourse.internalVerifier})</p>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Completed Date *</label>
+                                <input
+                                    type="date"
+                                    required
+                                    className="w-full px-3 py-2 border rounded-lg"
+                                    value={formData.completedDate}
+                                    onChange={(e) => handleCompletedDateChange(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">
+                                    Expiry/Refresh Date
+                                    {selectedCourse?.recertificationMonths && <span className="text-xs text-gray-500 ml-1">(auto-calculated)</span>}
+                                </label>
+                                <input
+                                    type="date"
+                                    className="w-full px-3 py-2 border rounded-lg"
+                                    value={formData.expiryDate}
+                                    onChange={(e) => setFormData({...formData, expiryDate: e.target.value})}
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Certificate Number</label>
+                            <input
+                                type="text"
+                                className="w-full px-3 py-2 border rounded-lg"
+                                value={formData.certificateNumber}
+                                onChange={(e) => setFormData({...formData, certificateNumber: e.target.value})}
+                            />
+                        </div>
+
+                        {selectedCourse?.internalVerificationAllowed && (
+                            <div className="border-t pt-4">
+                                <h4 className="font-semibold mb-3">Internal Verification</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Verified By</label>
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border rounded-lg"
+                                            value={formData.verifiedBy}
+                                            onChange={(e) => setFormData({...formData, verifiedBy: e.target.value})}
+                                            placeholder={selectedCourse.internalVerifier}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Verification Date</label>
+                                        <input
+                                            type="date"
+                                            className="w-full px-3 py-2 border rounded-lg"
+                                            value={formData.verificationDate}
+                                            onChange={(e) => setFormData({...formData, verificationDate: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Notes</label>
+                            <textarea
+                                className="w-full px-3 py-2 border rounded-lg"
+                                rows="3"
+                                value={formData.notes}
+                                onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                            />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button type="submit" className="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                                Save Record
+                            </button>
+                            <button type="button" onClick={onClose} className="flex-1 bg-gray-300 px-4 py-2 rounded-lg hover:bg-gray-400">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
+            );
+        }
+
+        function TrainingManagementSystem() {
+            const [data] = useState(EMBEDDED_DATA);
+            const [people, setPeople] = useState([]);
+            const [courses, setCourses] = useState([]);
+            const [trainingRecords, setTrainingRecords] = useState([]);
+            const [activeTab, setActiveTab] = useState('people');
+            const [selectedPerson, setSelectedPerson] = useState(null);
+            const [courseModalOpen, setCourseModalOpen] = useState(false);
+            const [trainingRecordModalOpen, setTrainingRecordModalOpen] = useState(false);
+            const [editingRecord, setEditingRecord] = useState(null);
+            const [editingCourse, setEditingCourse] = useState(null);
+
+            useEffect(() => {
+                const savedPeople = localStorage.getItem('trainingPeople');
+                const savedCourses = localStorage.getItem('trainingCourses');
+                const savedRecords = localStorage.getItem('trainingRecords');
+                
+                setPeople(savedPeople ? JSON.parse(savedPeople) : SAMPLE_PEOPLE);
+                setCourses(savedCourses ? JSON.parse(savedCourses) : SAMPLE_COURSES);
+                setTrainingRecords(savedRecords ? JSON.parse(savedRecords) : []);
+            }, []);
+
+            const saveCourses = (newCourses) => {
+                setCourses(newCourses);
+                localStorage.setItem('trainingCourses', JSON.stringify(newCourses));
+            };
+
+            const saveRecords = (newRecords) => {
+                setTrainingRecords(newRecords);
+                localStorage.setItem('trainingRecords', JSON.stringify(newRecords));
+            };
+
+            const handleSaveCourse = (course) => {
+                const existing = courses.findIndex(c => c.id === course.id);
+                if (existing >= 0) {
+                    const updated = [...courses];
+                    updated[existing] = course;
+                    saveCourses(updated);
+                } else {
+                    saveCourses([...courses, course]);
+                }
+                setEditingCourse(null);
+            };
+
+            const handleDeleteCourse = (courseId) => {
+                if (confirm('Delete this course?')) {
+                    saveCourses(courses.filter(c => c.id !== courseId));
+                }
+            };
+
+            const handleSaveTrainingRecord = (record) => {
+                const existing = trainingRecords.findIndex(r => 
+                    r.personId === record.personId && r.competencyId === record.competencyId
+                );
+                
+                if (existing >= 0) {
+                    const updated = [...trainingRecords];
+                    updated[existing] = record;
+                    saveRecords(updated);
+                } else {
+                    saveRecords([...trainingRecords, record]);
+                }
+                setEditingRecord(null);
+            };
+
+            const getTrainingStatus = (record) => {
+                if (!record) return 'pending';
+                if (!record.expiryDate) return 'complete';
+                
+                const today = new Date();
+                const expiry = new Date(record.expiryDate);
+                const daysUntilExpiry = Math.floor((expiry - today) / (1000 * 60 * 60 * 24));
+                
+                if (daysUntilExpiry < 0) return 'expired';
+                if (daysUntilExpiry <= 30) return 'expiring';
+                return 'complete';
+            };
+
+            const getStatusBadge = (status) => {
+                const classes = {
+                    'complete': 'status-complete',
+                    'expiring': 'status-expiring',
+                    'expired': 'status-expired',
+                    'pending': 'status-pending'
+                };
+                const labels = {
+                    'complete': 'Current',
+                    'expiring': 'Expiring Soon',
+                    'expired': 'Expired',
+                    'pending': 'Not Completed'
+                };
+                return <span className={`px-2 py-1 rounded text-xs font-semibold ${classes[status]}`}>{labels[status]}</span>;
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <div className="bg-blue-600 text-white p-6 shadow-lg">
+                        <h1 className="text-3xl font-bold">Training Management System</h1>
+                        <p className="mt-2 text-blue-100">Cook Shire Council</p>
+                    </div>
+
+                    <div className="bg-white shadow">
+                        <div className="flex border-b">
+                            <button
+                                onClick={() => setActiveTab('matrix')}
+                                className={`px-6 py-3 font-semibold ${activeTab === 'matrix' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
+                            >
+                                Competency Matrix
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('courses')}
+                                className={`px-6 py-3 font-semibold $
+                        {activeTab === 'matrix' && (
+                            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+                                <div className="p-6 border-b">
+                                    <h2 className="text-xl font-bold mb-4">Competency Requirements Matrix</h2>
+                                    <div className="flex flex-wrap gap-4 items-center mb-4">
+                                        <div className="text-sm font-semibold">Legend:</div>
+                                        {Object.entries(data.legend).map(([code, desc]) => (
+                                            <div key={code} className="flex items-center gap-2">
+                                                <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                                    code.startsWith('M') ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'
+                                                }`}>{code}</span>
+                                                <span className="text-sm text-gray-600">{desc}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div style={{overflow: 'auto', maxHeight: 'calc(100vh - 350px)'}}>
+                                    <table className="w-full border-collapse">
+                                        <thead>
+                                            <tr className="bg-gray-100 border-b-2 border-gray-300" style={{position: 'sticky', top: 0, zIndex: 10}}>
+                                                <th className="px-4 py-3 text-left font-semibold border-r-2 border-gray-300" style={{position: 'sticky', left: 0, background: 'rgb(243 244 246)', minWidth: '250px'}}>
+                                                    Competency
+                                                </th>
+                                                <th className="px-4 py-3 text-left font-semibold border-r-2 border-gray-300" style={{position: 'sticky', left: '250px', background: 'rgb(243 244 246)', minWidth: '150px'}}>
+                                                    Category
+                                                </th>
+                                                {data.roles.slice(0, 20).map(role => (
+                                                    <th key={role.id} className="px-2 py-3 text-left bg-gray-100 border-r border-gray-200" style={{minWidth: '120px'}}>
+                                                        <div className="text-xs font-semibold">{role.name}</div>
+                                                        <div className="text-xs text-gray-500 mt-1">{role.department}</div>
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {data.competencies.map((comp, idx) => (
+                                                <tr key={comp.id} className={`border-b border-gray-200 hover:bg-blue-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                                                    <td className="px-4 py-3 font-medium border-r-2 border-gray-300" style={{position: 'sticky', left: 0, background: 'inherit', minWidth: '250px'}}>
+                                                        {comp.name}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-gray-600 border-r-2 border-gray-300" style={{position: 'sticky', left: '250px', background: 'inherit', minWidth: '150px'}}>
+                                                        {comp.category}
+                                                    </td>
+                                                    {data.roles.slice(0, 20).map(role => (
+                                                        <td key={role.id} className="px-2 py-3 text-center border-r border-gray-200">
+                                                            {comp.requirements[role.id] && (
+                                                                <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                                                    comp.requirements[role.id].startsWith('M') ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'
+                                                                }`}>
+                                                                    {comp.requirements[role.id]}
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div className="p-4 bg-gray-50 border-t text-sm text-gray-600">
+                                    Showing {data.competencies.length} competencies across first 20 roles (scroll right to see more)
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'courses' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
+                            >
+                                Training Courses
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('people')}
+                                className={`px-6 py-3 font-semibold ${activeTab === 'people' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
+                            >
+                                People & Records
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('reports')}
+                                className={`px-6 py-3 font-semibold ${activeTab === 'reports' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
+                            >
+                                Reports
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="p-6">
+                        {activeTab === 'courses' && (
+                            <div className="bg-white rounded-lg shadow-lg p-6">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-xl font-bold">Training Courses Library</h2>
+                                    <button
+                                        onClick={() => {
+                                            setEditingCourse(null);
+                                            setCourseModalOpen(true);
+                                        }}
+                                        className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+                                    >
+                                        + Add Course
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {courses.map(course => (
+                                        <div key={course.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h3 className="font-bold text-lg">{course.name}</h3>
+                                                <button
+                                                    onClick={() => handleDeleteCourse(course.id)}
+                                                    className="text-red-500 hover:text-red-700"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                            
+                                            <div className="space-y-2 text-sm mb-4">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`px-2 py-1 rounded text-xs font-semibold ${course.providerType === 'internal' ? 'badge-internal' : 'badge-external'}`}>
+                                                        {course.providerType === 'internal' ? '🏢 Internal' : '🌐 External'}
+                                                    </span>
+                                                </div>
+                                                <p><strong>Provider:</strong> {course.provider}</p>
+                                                {course.duration && <p><strong>Duration:</strong> {course.duration}</p>}
+                                                {course.recertificationMonths && (
+                                                    <p><strong>Recertification:</strong> Every {course.recertificationMonths} months</p>
+                                                )}
+                                                {course.cost > 0 && <p><strong>Cost:</strong> ${course.cost}</p>}
+                                                {course.internalVerificationAllowed && (
+                                                    <p className="text-green-600">✓ Internal verification by {course.internalVerifier}</p>
+                                                )}
+                                            </div>
+
+                                            <button
+                                                onClick={() => {
+                                                    setEditingCourse(course);
+                                                    setCourseModalOpen(true);
+                                                }}
+                                                className="w-full bg-gray-100 px-3 py-2 rounded hover:bg-gray-200 text-sm"
+                                            >
+                                                Edit Course
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'people' && (
+                            <div>
+                                <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                                    <h2 className="text-xl font-bold mb-4">Staff Members</h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {people.map(person => (
+                                            <div key={person.id} className="border rounded-lg p-4">
+                                                <h3 className="font-bold">{person.name}</h3>
+                                                <p className="text-sm text-gray-600">{data.roles.find(r => r.id === person.roleId)?.name}</p>
+                                                <button
+                                                    onClick={() => setSelectedPerson(person)}
+                                                    className="w-full mt-3 bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 text-sm"
+                                                >
+                                                    View Training
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {selectedPerson && (
+                                    <div className="bg-white rounded-lg shadow-lg p-6">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h2 className="text-xl font-bold">{selectedPerson.name} - Training Records</h2>
+                                            <button onClick={() => setSelectedPerson(null)} className="text-gray-500">Close</button>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            {data.competencies
+                                                .filter(comp => comp.requirements[selectedPerson.roleId])
+                                                .map(comp => {
+                                                    const record = trainingRecords.find(r => 
+                                                        r.personId === selectedPerson.id && r.competencyId === comp.id
+                                                    );
+                                                    const course = record ? courses.find(c => c.id === record.courseId) : null;
+                                                    const status = getTrainingStatus(record);
+
+                                                    return (
+                                                        <div key={comp.id} className="border rounded-lg p-4">
+                                                            <div className="flex justify-between">
+                                                                <div className="flex-1">
+                                                                    <h4 className="font-semibold">{comp.name}</h4>
+                                                                    {record && course && (
+                                                                        <div className="mt-2 text-sm">
+                                                                            <p><strong>Course:</strong> {course.name}</p>
+                                                                            <p><strong>Completed:</strong> {record.completedDate}</p>
+                                                                            {record.expiryDate && <p><strong>Expires:</strong> {record.expiryDate}</p>}
+                                                                            {record.verifiedBy && (
+                                                                                <p className="text-green-600">✓ Verified by {record.verifiedBy} on {record.verificationDate}</p>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex flex-col gap-2 items-end">
+                                                                    {getStatusBadge(status)}
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setEditingRecord({ competency: comp, person: selectedPerson, record });
+                                                                            setTrainingRecordModalOpen(true);
+                                                                        }}
+                                                                        className="text-blue-500 text-sm"
+                                                                    >
+                                                                        {record ? 'Edit' : 'Add'}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'reports' && (
+                            <div className="bg-white rounded-lg shadow-lg p-6">
+                                <h2 className="text-xl font-bold mb-4">Reports coming soon...</h2>
+                            </div>
+                        )}
+                    </div>
+
+                    <CourseModal
+                        isOpen={courseModalOpen}
+                        onClose={() => {
+                            setCourseModalOpen(false);
+                            setEditingCourse(null);
+                        }}
+                        onSave={handleSaveCourse}
+                        existingCourse={editingCourse}
+                    />
+
+                    <TrainingRecordModal
+                        isOpen={trainingRecordModalOpen}
+                        onClose={() => {
+                            setTrainingRecordModalOpen(false);
+                            setEditingRecord(null);
+                        }}
+                        onSave={handleSaveTrainingRecord}
+                        person={editingRecord?.person}
+                        competency={editingRecord?.competency}
+                        existingRecord={editingRecord?.record}
+                        courses={courses}
+                    />
+                </div>
+            );
+        }
+
+        ReactDOM.render(<TrainingManagementSystem />, document.getElementById('root'));
+    </script>
+</body>
+</html>
