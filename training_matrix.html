@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Training Matrix - Cook Shire Council</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .matrix-cell { min-width: 80px; max-width: 300px; resize: horizontal; overflow: auto; }
+        .resizable-header { 
+            position: relative; 
+            min-width: 80px;
+            resize: horizontal;
+            overflow: hidden;
+        }
+        .sticky-col { position: sticky; left: 0; z-index: 10; background: white; }
+        .sticky-header { position: sticky; top: 0; z-index: 20; background: white; }
+        .matrix-container { overflow: auto; max-height: calc(100vh - 250px); }
+        .badge-ma { background: #dc2626; color: white; }
+        .badge-ms { background: #ef4444; color: white; }
+        .badge-da { background: #2563eb; color: white; }
+        .badge-ds { background: #3b82f6; color: white; }
+        .editable-cell { cursor: pointer; }
+        .editable-cell:hover { background: #f0f9ff; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        const EMBEDDED_DATA = {
+            roles: [],
+            competencies: [],
+            legend: {
+                'M(A)': 'Mandatory (All)',
+                'M(S)': 'Mandatory (Specific)',
+                'D(A)': 'Desirable (All)',
+                'D(S)': 'Desirable (Specific)'
+            }
+        };
+
+        function EditModal({ isOpen, onClose, onSave, competency, role, currentRequirement }) {
+            const [selectedRequirement, setSelectedRequirement] = useState(currentRequirement || '');
+
+            useEffect(() => {
+                setSelectedRequirement(currentRequirement || '');
+            }, [currentRequirement]);
+
+            if (!isOpen) return null;
+
+            const handleSave = () => {
+                onSave(selectedRequirement);
+                onClose();
+            };
+
+            const handleRemove = () => {
+                onSave('');
+                onClose();
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
+                    <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="text-xl font-bold mb-4">Edit Requirement</h3>
+                        
+                        <div className="mb-4">
+                            <p className="text-sm text-gray-600 mb-2"><strong>Competency:</strong> {competency?.name}</p>
+                            <p className="text-sm text-gray-600 mb-4"><strong>Role:</strong> {role?.name}</p>
+                        </div>
+
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Requirement Type</label>
+                            <select
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                value={selectedRequirement}
+                                onChange={(e) => setSelectedRequirement(e.target.value)}
+                            >
+                                <option value="">None (Remove)</option>
+                                <option value="M(A)">M(A) - Mandatory (All)</option>
+                                <option value="M(S)">M(S) - Mandatory (Specific)</option>
+                                <option value="D(A)">D(A) - Desirable (All)</option>
+                                <option value="D(S)">D(S) - Desirable (Specific)</option>
+                            </select>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleSave}
+                                className="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+                            >
+                                Save
+                            </button>
+                            {currentRequirement && (
+                                <button
+                                    onClick={handleRemove}
+                                    className="flex-1 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
+                                >
+                                    Remove
+                                </button>
+                            )}
+                            <button
+                                onClick={onClose}
+                                className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function TrainingMatrix() {
+            const [data, setData] = useState(EMBEDDED_DATA);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [selectedDepartment, setSelectedDepartment] = useState('');
+            const [selectedRole, setSelectedRole] = useState('');
+            const [viewMode, setViewMode] = useState('matrix');
+            const [filterType, setFilterType] = useState('all');
+            const [loading, setLoading] = useState(true);
+            const [editMode, setEditMode] = useState(false);
+            const [editModalOpen, setEditModalOpen] = useState(false);
+            const [editingCell, setEditingCell] = useState(null);
+            const [columnWidths, setColumnWidths] = useState({});
+            const [hasChanges, setHasChanges] = useState(false);
+
+            useEffect(() => {
+                // Load data from localStorage or use embedded data
+                const savedData = localStorage.getItem('trainingMatrixData');
+                if (savedData) {
+                    try {
+                        setData(JSON.parse(savedData));
+                    } catch (e) {
+                        console.error('Error loading saved data:', e);
+                    }
+                }
+                setLoading(false);
+            }, []);
+
+            const saveData = (newData) => {
+                setData(newData);
+                localStorage.setItem('trainingMatrixData', JSON.stringify(newData));
+                setHasChanges(false);
+            };
+
+            const departments = useMemo(() => {
+                const depts = [...new Set(data.roles.map(r => r.department).filter(Boolean))];
+                return depts.sort();
+            }, [data.roles]);
+
+            const filteredRoles = useMemo(() => {
+                return data.roles.filter(role => {
+                    const matchesSearch = role.name.toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchesDept = !selectedDepartment || role.department === selectedDepartment;
+                    return matchesSearch && matchesDept;
+                });
+            }, [searchTerm, selectedDepartment, data.roles]);
+
+            const filteredCompetencies = useMemo(() => {
+                return data.competencies.filter(comp => {
+                    const matchesSearch = comp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                        comp.category.toLowerCase().includes(searchTerm.toLowerCase());
+                    if (!matchesSearch) return false;
+                    
+                    if (filterType === 'mandatory') {
+                        return Object.values(comp.requirements).some(req => req.startsWith('M'));
+                    } else if (filterType === 'desirable') {
+                        return Object.values(comp.requirements).some(req => req.startsWith('D'));
+                    } else if (filterType === 'mandatory-all') {
+                        return Object.values(comp.requirements).some(req => req === 'M(A)');
+                    } else if (filterType === 'mandatory-specific') {
+                        return Object.values(comp.requirements).some(req => req === 'M(S)');
+                    } else if (filterType === 'desirable-all') {
+                        return Object.values(comp.requirements).some(req => req === 'D(A)');
+                    } else if (filterType === 'desirable-specific') {
+                        return Object.values(comp.requirements).some(req => req === 'D(S)');
+                    }
+                    return true;
+                });
+            }, [searchTerm, filterType, data.competencies]);
+
+            const getRequirementBadge = (requirement) => {
+                if (!requirement) return null;
+                
+                const badgeClass = {
+                    'M(A)': 'badge-ma',
+                    'M(S)': 'badge-ms',
+                    'D(A)': 'badge-da',
+                    'D(S)': 'badge-ds'
+                }[requirement] || 'badge-ma';
+                
+                return (
+                    <span className={`px-2 py-1 rounded text-xs font-semibold ${badgeClass}`}>
+                        {requirement}
+                    </span>
+                );
+            };
+
+            const handleCellClick = (competency, role) => {
+                if (!editMode) return;
+                
+                setEditingCell({
+                    competency,
+                    role,
+                    currentRequirement: competency.requirements[role.id] || ''
+                });
+                setEditModalOpen(true);
+            };
+
+            const handleSaveRequirement = (newRequirement) => {
+                if (!editingCell) return;
+
+                const newData = { ...data };
+                const compIndex = newData.competencies.findIndex(c => c.id === editingCell.competency.id);
+                
+                if (compIndex !== -1) {
+                    if (newRequirement) {
+                        newData.competencies[compIndex].requirements[editingCell.role.id] = newRequirement;
+                    } else {
+                        delete newData.competencies[compIndex].requirements[editingCell.role.id];
+                    }
+                }
+
+                saveData(newData);
+                setHasChanges(true);
+            };
+
+            const exportData = () => {
+                const dataStr = JSON.stringify(data, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'training-matrix-data.json';
+                link.click();
+            };
+
+            const importData = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const imported = JSON.parse(e.target.result);
+                        saveData(imported);
+                        alert('Data imported successfully!');
+                    } catch (error) {
+                        alert('Error importing data: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+
+            const roleCompetencies = useMemo(() => {
+                if (!selectedRole) return [];
+                return data.competencies.filter(comp => 
+                    comp.requirements[selectedRole]
+                ).map(comp => ({
+                    ...comp,
+                    requirement: comp.requirements[selectedRole]
+                }));
+            }, [selectedRole, data.competencies]);
+
+            const getRequirementStats = () => {
+                const stats = { 'M(A)': 0, 'M(S)': 0, 'D(A)': 0, 'D(S)': 0 };
+                data.competencies.forEach(comp => {
+                    Object.values(comp.requirements).forEach(req => {
+                        if (stats.hasOwnProperty(req)) {
+                            stats[req]++;
+                        }
+                    });
+                });
+                return stats;
+            };
+
+            const stats = getRequirementStats();
+
+            if (loading) {
+                return (
+                    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                        <div className="text-xl">Loading training matrix...</div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    {/* Header */}
+                    <div className="bg-blue-600 text-white p-6 shadow-lg">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h1 className="text-3xl font-bold">Cook Shire Council Training Matrix</h1>
+                                <p className="mt-2 text-blue-100">Competency and Training Requirements</p>
+                            </div>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setEditMode(!editMode)}
+                                    className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
+                                        editMode 
+                                            ? 'bg-yellow-500 hover:bg-yellow-600' 
+                                            : 'bg-white text-blue-600 hover:bg-gray-100'
+                                    }`}
+                                >
+                                    {editMode ? '✓ Editing Mode' : 'Edit Matrix'}
+                                </button>
+                                <button
+                                    onClick={exportData}
+                                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                                >
+                                    Export
+                                </button>
+                                <label className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 cursor-pointer">
+                                    Import
+                                    <input type="file" accept=".json" onChange={importData} className="hidden" />
+                                </label>
+                            </div>
+                        </div>
+                        {editMode && (
+                            <div className="mt-3 bg-yellow-500 text-yellow-900 px-4 py-2 rounded">
+                                <strong>Edit Mode Active:</strong> Click any cell to add/edit/remove requirements
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Controls */}
+                    <div className="bg-white shadow-md p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                                <input
+                                    type="text"
+                                    placeholder="Search roles or competencies..."
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                                <select
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    value={selectedDepartment}
+                                    onChange={(e) => setSelectedDepartment(e.target.value)}
+                                >
+                                    <option value="">All Departments</option>
+                                    {departments.map(dept => (
+                                        <option key={dept} value={dept}>{dept}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">View Mode</label>
+                                <select
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    value={viewMode}
+                                    onChange={(e) => setViewMode(e.target.value)}
+                                >
+                                    <option value="matrix">Matrix View</option>
+                                    <option value="role">Role Profile</option>
+                                    <option value="cards">Card View</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Filter Type</label>
+                                <select
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    value={filterType}
+                                    onChange={(e) => setFilterType(e.target.value)}
+                                >
+                                    <option value="all">All Requirements</option>
+                                    <option value="mandatory">All Mandatory (M)</option>
+                                    <option value="desirable">All Desirable (D)</option>
+                                    <option value="mandatory-all">Mandatory (All) - M(A)</option>
+                                    <option value="mandatory-specific">Mandatory (Specific) - M(S)</option>
+                                    <option value="desirable-all">Desirable (All) - D(A)</option>
+                                    <option value="desirable-specific">Desirable (Specific) - D(S)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Legend and Stats */}
+                        <div className="mt-4 flex flex-wrap gap-4 items-center">
+                            <div className="text-sm font-semibold">Legend:</div>
+                            {Object.entries(data.legend).map(([code, desc]) => (
+                                <div key={code} className="flex items-center gap-2">
+                                    {getRequirementBadge(code)}
+                                    <span className="text-sm text-gray-600">{desc} ({stats[code] || 0})</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-6">
+                        {viewMode === 'matrix' && (
+                            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+                                <div className="matrix-container">
+                                    <table className="w-full border-collapse">
+                                        <thead>
+                                            <tr className="sticky-header border-b-2 border-gray-300">
+                                                <th className="sticky-col px-4 py-3 text-left bg-gray-100 font-semibold border-r-2 border-gray-300 resizable-header" style={{width: '250px'}}>
+                                                    Competency
+                                                </th>
+                                                <th className="sticky-col px-4 py-3 text-left bg-gray-100 font-semibold border-r-2 border-gray-300 resizable-header" style={{left: '250px', width: '200px'}}>
+                                                    Category
+                                                </th>
+                                                {filteredRoles.map(role => (
+                                                    <th 
+                                                        key={role.id} 
+                                                        className="matrix-cell px-2 py-3 text-left bg-gray-100 border-r border-gray-200 resizable-header"
+                                                        style={{width: columnWidths[role.id] || '120px'}}
+                                                    >
+                                                        <div className="text-xs font-semibold">{role.name}</div>
+                                                        <div className="text-xs text-gray-500 mt-1">{role.department}</div>
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredCompetencies.map((comp, idx) => (
+                                                <tr key={comp.id} className={`border-b border-gray-200 hover:bg-blue-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                                                    <td className="sticky-col px-4 py-3 font-medium border-r-2 border-gray-300 bg-inherit" style={{width: '250px'}}>
+                                                        {comp.name}
+                                                    </td>
+                                                    <td className="sticky-col px-4 py-3 text-sm text-gray-600 border-r-2 border-gray-300 bg-inherit" style={{left: '250px', width: '200px'}}>
+                                                        {comp.category}
+                                                    </td>
+                                                    {filteredRoles.map(role => (
+                                                        <td 
+                                                            key={role.id} 
+                                                            className={`matrix-cell px-2 py-3 text-center border-r border-gray-200 ${editMode ? 'editable-cell' : ''}`}
+                                                            style={{width: columnWidths[role.id] || '120px'}}
+                                                            onClick={() => handleCellClick(comp, role)}
+                                                        >
+                                                            {comp.requirements[role.id] && getRequirementBadge(comp.requirements[role.id])}
+                                                            {editMode && !comp.requirements[role.id] && (
+                                                                <span className="text-gray-400 text-xs">+ Add</span>
+                                                            )}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div className="p-4 bg-gray-50 border-t text-sm text-gray-600">
+                                    Showing {filteredCompetencies.length} competencies across {filteredRoles.length} roles
+                                    {editMode && <span className="ml-4 text-yellow-600">• Tip: Drag column edges to resize</span>}
+                                </div>
+                            </div>
+                        )}
+
+                        {viewMode === 'role' && (
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h3 className="text-lg font-semibold mb-4">Select Role</h3>
+                                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                                        {filteredRoles.map(role => (
+                                            <button
+                                                key={role.id}
+                                                onClick={() => setSelectedRole(role.id)}
+                                                className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                                                    selectedRole === role.id 
+                                                        ? 'bg-blue-500 text-white' 
+                                                        : 'bg-gray-50 hover:bg-gray-100'
+                                                }`}
+                                            >
+                                                <div className="font-medium">{role.name}</div>
+                                                <div className="text-xs mt-1 opacity-75">{role.department}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="lg:col-span-2 bg-white rounded-lg shadow-lg p-6">
+                                    {selectedRole ? (
+                                        <>
+                                            <div className="mb-6">
+                                                <h3 className="text-2xl font-bold text-gray-800">
+                                                    {data.roles.find(r => r.id === selectedRole)?.name}
+                                                </h3>
+                                                <p className="text-gray-600 mt-1">
+                                                    {data.roles.find(r => r.id === selectedRole)?.department}
+                                                </p>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <h4 className="text-lg font-semibold">Required Competencies</h4>
+                                                {roleCompetencies.length > 0 ? (
+                                                    <div className="space-y-3">
+                                                        {roleCompetencies.map(comp => (
+                                                            <div key={comp.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                                                <div className="flex justify-between items-start">
+                                                                    <div className="flex-1">
+                                                                        <h5 className="font-medium text-gray-800">{comp.name}</h5>
+                                                                        {comp.category && (
+                                                                            <p className="text-sm text-gray-500 mt-1">{comp.category}</p>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex gap-2 items-center">
+                                                                        {getRequirementBadge(comp.requirement)}
+                                                                        {editMode && (
+                                                                            <button
+                                                                                onClick={() => handleCellClick(comp, data.roles.find(r => r.id === selectedRole))}
+                                                                                className="text-blue-500 hover:text-blue-700 text-sm"
+                                                                            >
+                                                                                Edit
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-gray-500 italic">No specific competencies required for this role.</p>
+                                                )}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="text-center text-gray-500 py-12">
+                                            <p className="text-lg">Select a role to view requirements</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {viewMode === 'cards' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {filteredRoles.map(role => {
+                                    const requirements = data.competencies
+                                        .filter(comp => comp.requirements[role.id])
+                                        .map(comp => ({
+                                            ...comp,
+                                            requirement: comp.requirements[role.id]
+                                        }));
+                                    
+                                    const reqCounts = {
+                                        'M(A)': requirements.filter(r => r.requirement === 'M(A)').length,
+                                        'M(S)': requirements.filter(r => r.requirement === 'M(S)').length,
+                                        'D(A)': requirements.filter(r => r.requirement === 'D(A)').length,
+                                        'D(S)': requirements.filter(r => r.requirement === 'D(S)').length
+                                    };
+
+                                    return (
+                                        <div key={role.id} className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
+                                            <h3 className="text-lg font-bold text-gray-800 mb-2">{role.name}</h3>
+                                            <p className="text-sm text-gray-600 mb-4">{role.department}</p>
+                                            
+                                            <div className="grid grid-cols-2 gap-2 mb-4">
+                                                <div className="bg-red-50 rounded-lg p-3">
+                                                    <div className="text-xl font-bold text-red-600">{reqCounts['M(A)']}</div>
+                                                    <div className="text-xs text-gray-600">M(A)</div>
+                                                </div>
+                                                <div className="bg-red-50 rounded-lg p-3">
+                                                    <div className="text-xl font-bold text-red-500">{reqCounts['M(S)']}</div>
+                                                    <div className="text-xs text-gray-600">M(S)</div>
+                                                </div>
+                                                <div className="bg-blue-50 rounded-lg p-3">
+                                                    <div className="text-xl font-bold text-blue-600">{reqCounts['D(A)']}</div>
+                                                    <div className="text-xs text-gray-600">D(A)</div>
+                                                </div>
+                                                <div className="bg-blue-50 rounded-lg p-3">
+                                                    <div className="text-xl font-bold text-blue-500">{reqCounts['D(S)']}</div>
+                                                    <div className="text-xs text-gray-600">D(S)</div>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedRole(role.id);
+                                                    setViewMode('role');
+                                                }}
+                                                className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                                            >
+                                                View Details
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Edit Modal */}
+                    <EditModal
+                        isOpen={editModalOpen}
+                        onClose={() => setEditModalOpen(false)}
+                        onSave={handleSaveRequirement}
+                        competency={editingCell?.competency}
+                        role={editingCell?.role}
+                        currentRequirement={editingCell?.currentRequirement}
+                    />
+                </div>
+            );
+        }
+
+        ReactDOM.render(<TrainingMatrix />, document.getElementById('root'));
+    </script>
+</body>
+</html>
