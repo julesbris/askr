@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Training Matrix - Cook Shire Council</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .matrix-cell { min-width: 120px; max-width: 120px; }
+        .sticky-col { position: sticky; left: 0; z-index: 10; background: white; }
+        .sticky-header { position: sticky; top: 0; z-index: 20; background: white; }
+        .matrix-container { overflow: auto; max-height: calc(100vh - 250px); }
+        .badge-mandatory { background: #ef4444; color: white; }
+        .badge-desirable { background: #3b82f6; color: white; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        const TRAINING_DATA = {
+            roles: [
+                { id: 'role_0', name: 'Depot Administration Officer', department: 'Fleet & Civil Works' },
+                { id: 'role_1', name: 'Diesel Fitter', department: 'Fleet & Civil Works' },
+                { id: 'role_2', name: 'Apprentice Diesel Fitter', department: 'Fleet & Civil Works' },
+                { id: 'role_3', name: 'Civil Construction Labourer / Relief Plant', department: 'Fleet & Civil Works' },
+                { id: 'role_4', name: 'Grader Operator', department: 'Fleet & Civil Works' },
+                { id: 'role_5', name: 'Truck Driver / Labourer', department: 'Fleet & Civil Works' },
+                { id: 'role_6', name: 'Civil Construction Plant Operator', department: 'Fleet & Civil Works' },
+                { id: 'role_7', name: 'Civil Construction Labourer', department: 'Fleet & Civil Works' },
+                { id: 'role_8', name: 'Civil Construction Ganger', department: 'Fleet & Civil Works' },
+                { id: 'role_9', name: 'Trade Assistant (Water & Wastewater)', department: 'Water & Waste' },
+                { id: 'role_10', name: 'Maintenance Technician', department: 'Water & Waste' },
+                { id: 'role_11', name: 'Boilermaker', department: 'Water & Waste' },
+                { id: 'role_12', name: 'Concrete Labourer', department: 'Water & Waste' },
+                { id: 'role_13', name: 'Concrete Finisher', department: 'Water & Waste' },
+                { id: 'role_14', name: 'Civil Works Construction Foreman', department: 'Engineering' },
+                { id: 'role_15', name: 'Structural Foreperson', department: 'Engineering' },
+                { id: 'role_16', name: 'Workshop Foreman', department: 'Engineering' },
+                { id: 'role_17', name: 'Manager Fleet & Workshop', department: 'Engineering' },
+                { id: 'role_18', name: 'Survey & GIS Technical Officer', department: 'Engineering' },
+                { id: 'role_19', name: 'Civil Operations Coordinator', department: 'Engineering' },
+                { id: 'role_20', name: 'Project Manager', department: 'Engineering' },
+                { id: 'role_21', name: 'Project Engineer', department: 'Engineering' },
+                { id: 'role_22', name: 'Project Support Officer', department: 'Engineering' },
+                { id: 'role_23', name: 'Parks & Gardens Coordinator', department: 'Parks and Gardens' },
+                { id: 'role_24', name: 'Botanic Gardens Curator', department: 'Parks and Gardens' },
+                { id: 'role_25', name: 'Manager Engineering', department: 'Engineering' },
+                { id: 'role_26', name: 'Plumbers (Water & Wastewater)', department: 'Water & Waste' },
+                { id: 'role_27', name: 'Apprentice Plumber', department: 'Water & Waste' },
+                { id: 'role_28', name: 'Leading Hand / Relief Plant Operator', department: 'Water & Waste' },
+                { id: 'role_29', name: 'Water & Wastewater Network Operator', department: 'Water & Waste' },
+                { id: 'role_30', name: 'Water & Wastewater Treatment Plant Operator - Cooktown', department: 'Water & Waste' },
+                { id: 'role_31', name: 'Water & Wastewater Treatment Plant Operator - Coen', department: 'Water & Waste' },
+                { id: 'role_32', name: 'Team Leader Reticulation, Water & Treatment', department: 'Water & Waste' },
+                { id: 'role_33', name: 'Electrician Water & Wastewater', department: 'Water & Waste' },
+                { id: 'role_34', name: 'Apprentice Electrician', department: 'Water & Waste' },
+                { id: 'role_35', name: 'Waste Management Coordinator', department: 'Water & Waste' },
+                { id: 'role_36', name: 'Manager Water & Waste', department: 'Water & Waste' },
+                { id: 'role_37', name: 'Airport Reporting Officer', department: 'Airports' },
+                { id: 'role_38', name: 'Cooktown Airport Operations Officer', department: 'Airports' },
+                { id: 'role_39', name: 'Manager Airports', department: 'Airports' },
+                { id: 'role_40', name: 'DRFA Contractors', department: 'DRFA' },
+                { id: 'role_41', name: 'DRFA Forepersons', department: 'DRFA' },
+                { id: 'role_42', name: 'Parks & Gardens Labourers', department: 'Parks and Gardens' },
+                { id: 'role_43', name: 'Botanic Gardens Labourers', department: 'Parks and Gardens' },
+                { id: 'role_44', name: 'Parks & Gardens Ganger', department: 'Parks and Gardens' },
+                { id: 'role_45', name: 'Botanic Gardens Ganger', department: 'Parks and Gardens' },
+                { id: 'role_46', name: 'Horticulturalist', department: 'Parks and Gardens' },
+                { id: 'role_47', name: 'Payroll Officer', department: 'Financial Services' },
+                { id: 'role_48', name: 'Accounts Payable Officer', department: 'Financial Services' },
+                { id: 'role_49', name: 'Stores Officer', department: 'Financial Services' },
+                { id: 'role_50', name: 'Rates Officer', department: 'Financial Services' },
+                { id: 'role_51', name: 'Senior Accounts Officer', department: 'Financial Services' },
+                { id: 'role_52', name: 'Senior Finance Officer', department: 'Financial Services' },
+                { id: 'role_53', name: 'Accountant', department: 'Financial Services' },
+                { id: 'role_54', name: 'Housing Officer', department: 'Financial Services' },
+                { id: 'role_55', name: 'Property & Commercial Services Coordinator', department: 'Financial Services' },
+                { id: 'role_56', name: 'ICT Operations & Support Officer', department: 'Information & Communications Technology' },
+                { id: 'role_57', name: 'ICT Coordinator', department: 'Information & Communications Technology' },
+                { id: 'role_58', name: 'ICT System Administrator', department: 'Information & Communications Technology' },
+                { id: 'role_59', name: 'ICT Administration Officer', department: 'Information & Communications Technology' },
+                { id: 'role_60', name: 'Media & Communications Officer', department: 'Communications & Engagement' },
+                { id: 'role_61', name: 'Indigenous (Bama) Patnerships Officer', department: 'Communications & Engagement' },
+                { id: 'role_62', name: 'Communications & Engagement Manager', department: 'Communications & Engagement' },
+                { id: 'role_63', name: 'Safety & Training Advisor', department: 'People and Performance' },
+                { id: 'role_64', name: 'WHS Manager', department: 'People and Performance' },
+                { id: 'role_65', name: 'Senior HR Advisor (Infrastructure)', department: 'People and Performance' },
+                { id: 'role_66', name: 'Senior HR Advisor', department: 'People and Performance' },
+                { id: 'role_67', name: 'Building & Facilities Support Officer', department: 'Building & Facilities' },
+                { id: 'role_68', name: 'Cleaners', department: 'Building & Facilities' },
+                { id: 'role_69', name: 'Team Leader - Cleaning', department: 'Building & Facilities' },
+                { id: 'role_70', name: 'Casual Cleaner - Coen', department: 'Building & Facilities' },
+                { id: 'role_71', name: 'Senior Cleaner Coen', department: 'Building & Facilities' },
+                { id: 'role_72', name: 'Project Officer', department: 'Building & Facilities' },
+                { id: 'role_73', name: 'Coen Public Spaces', department: 'Building & Facilities' },
+                { id: 'role_74', name: 'Plumber', department: 'Building & Facilities' },
+                { id: 'role_75', name: 'Lead Electrician', department: 'Building & Facilities' },
+                { id: 'role_76', name: 'Trade Assistant', department: 'Building & Facilities' },
+                { id: 'role_77', name: 'Maintenance Coordinator - Coen', department: 'Building & Facilities' },
+                { id: 'role_78', name: 'Carpenter', department: 'Building & Facilities' },
+                { id: 'role_79', name: 'Chief Operating Officer', department: 'Building & Facilities' },
+                { id: 'role_80', name: 'Facilities & Projects Manager', department: 'Building & Facilities' },
+                { id: 'role_81', name: 'Local Laws Officer', department: 'Planning & Environment' },
+                { id: 'role_82', name: 'Biosecurity Operator', department: 'Planning & Environment' },
+                { id: 'role_83', name: 'Biosecurity Officer', department: 'Planning & Environment' },
+                { id: 'role_84', name: 'Animal Management Officer', department: 'Planning & Environment' },
+                { id: 'role_85', name: 'Compliance Officer', department: 'Planning & Environment' },
+                { id: 'role_86', name: 'Planning Officer', department: 'Planning & Environment' },
+                { id: 'role_87', name: 'Plumbing & Drainage Inspector', department: 'Planning & Environment' },
+                { id: 'role_88', name: 'Environmental Health Officer', department: 'Planning & Environment' },
+                { id: 'role_89', name: 'Land Tenure Officer', department: 'Planning & Environment' },
+                { id: 'role_90', name: 'Library Officer Bloomfield', department: 'Community Lifestyle' },
+                { id: 'role_91', name: 'Library Officer Cooktown', department: 'Community Lifestyle' },
+                { id: 'role_92', name: 'Team Leader Library Services', department: 'Community Lifestyle' },
+                { id: 'role_93', name: 'Customer Service Officer', department: 'Community Lifestyle' },
+                { id: 'role_94', name: 'Team Leader Customer Service', department: 'Community Lifestyle' },
+                { id: 'role_95', name: 'Pool Attendant / Lifeguard / Instructor', department: 'Community Lifestyle' },
+                { id: 'role_96', name: 'Team Leader Cooktown Pool', department: 'Community Lifestyle' },
+                { id: 'role_97', name: 'Coen Sport & Recreational Officer', department: 'Community Lifestyle' },
+                { id: 'role_98', name: 'Community Lifestyle Coordinator', department: 'Community Lifestyle' },
+                { id: 'role_99', name: 'Cooktown Events Centre Manager', department: 'Community Lifestyle' },
+                { id: 'role_100', name: 'Community Connections & Events Officer', department: 'Regional Development' },
+                { id: 'role_101', name: 'Senior Tourism & Events Officer', department: 'Regional Development' },
+                { id: 'role_102', name: 'Regional Arts Officer', department: 'Regional Development' },
+                { id: 'role_103', name: 'Regional Development Manager', department: 'Regional Development' },
+                { id: 'role_104', name: 'Planning & Environment Manager', department: 'Growth & Liveability' },
+                { id: 'role_105', name: 'Facilities & Projects Manager', department: 'Growth & Liveability' },
+                { id: 'role_106', name: 'Communications Engagement Manager', department: 'Growth & Liveability' },
+                { id: 'role_107', name: 'Information & Communications Technology Manager', department: 'Growth & Liveability' },
+                { id: 'role_108', name: 'Disaster Management Officer', department: 'Growth & Liveability' },
+                { id: 'role_109', name: 'Executive Assistant', department: 'Growth & Liveability' },
+                { id: 'role_110', name: 'Director Infrastructure', department: 'Infrastructure' },
+                { id: 'role_111', name: 'Records Management Officer', department: 'Office of the CEO' },
+                { id: 'role_112', name: 'Senior Records Management Officer', department: 'Office of the CEO' },
+                { id: 'role_113', name: 'Governance Coordinator', department: 'Office of the CEO' },
+                { id: 'role_114', name: 'Audit, Risk & Grants Officer', department: 'Office of the CEO' },
+                { id: 'role_115', name: 'Manager Office of the CEO', department: 'Office of the CEO' },
+                { id: 'role_116', name: 'Chief Executive Officer', department: 'Office of the CEO' }
+            ],
+            competencies: [
+                { id: 'comp_1', name: 'Working with Children check (Blue Card)', category: '', requirements: { role_60: 'M(A)' } },
+                { id: 'comp_2', name: 'Immunisation Requirments', category: '', requirements: { role_42: 'M(A)', role_43: 'M(A)', role_44: 'M(A)', role_45: 'M(A)', role_46: 'M(A)', role_47: 'M(A)', role_67: 'M(A)' } },
+                { id: 'comp_3', name: 'Prepare to work safely in the construction industry (white card)', category: '', requirements: { role_1: 'M(A)', role_2: 'M(A)', role_3: 'M(A)', role_4: 'M(A)', role_5: 'M(A)', role_6: 'M(A)', role_7: 'M(A)', role_8: 'M(A)', role_9: 'M(A)', role_10: 'M(A)', role_11: 'M(A)', role_12: 'M(A)', role_13: 'M(A)', role_14: 'M(A)', role_15: 'M(A)', role_16: 'M(A)', role_17: 'M(A)', role_18: 'M(A)', role_19: 'M(A)', role_20: 'M(A)', role_21: 'M(A)', role_22: 'M(A)', role_38: 'M(A)', role_42: 'M(A)', role_43: 'M(A)', role_44: 'M(A)', role_45: 'M(A)', role_46: 'M(A)', role_64: 'M(A)', role_65: 'M(A)', role_67: 'D(A)', role_70: 'D(A)', role_75: 'M(A)', role_76: 'D(A)', role_77: 'M(A)', role_78: 'M(A)', role_79: 'M(A)', role_80: 'M(A)' } },
+                { id: 'comp_4', name: 'Car (C)', category: 'Vehicle Licence Codes', requirements: { role_1: 'M(A)', role_2: 'D(A)', role_3: 'M(A)', role_4: 'M(A)', role_5: 'M(A)', role_6: 'M(A)', role_7: 'M(A)', role_8: 'M(A)', role_9: 'M(A)', role_10: 'M(A)', role_11: 'M(A)', role_12: 'M(A)', role_13: 'M(A)', role_14: 'M(A)', role_15: 'M(A)', role_16: 'M(A)', role_17: 'M(A)', role_18: 'M(A)', role_19: 'M(A)', role_38: 'M(A)', role_39: 'M(A)', role_40: 'M(A)', role_41: 'M(A)', role_42: 'M(A)', role_43: 'M(A)', role_44: 'M(A)', role_45: 'M(A)', role_46: 'M(A)', role_47: 'M(A)', role_48: 'M(A)', role_49: 'M(A)', role_50: 'M(A)', role_56: 'M(A)', role_57: 'M(A)', role_58: 'M(A)', role_59: 'M(A)', role_61: 'M(A)', role_62: 'M(A)', role_63: 'M(A)', role_64: 'M(A)', role_65: 'M(A)', role_66: 'D(A)', role_67: 'D(A)', role_68: 'D(A)', role_69: 'M(A)', role_70: 'M(A)', role_71: 'M(A)', role_73: 'M(A)', role_74: 'M(A)', role_75: 'M(A)', role_76: 'M(A)', role_77: 'M(A)', role_78: 'M(A)', role_79: 'M(A)', role_80: 'M(A)', role_114: 'M(A)' } },
+                { id: 'comp_5', name: 'Light rigid (LR)', category: '', requirements: { role_3: 'D(A)' } },
+                { id: 'comp_6', name: 'Medium rigid (MR)', category: '', requirements: { role_3: 'D(A)', role_6: 'M(A)', role_7: 'M(A)', role_8: 'M(A)', role_9: 'D(A)', role_11: 'M(A)', role_14: 'M(A)', role_15: 'M(A)', role_42: 'M(A)', role_44: 'D(A)', role_76: 'D(A)' } },
+                { id: 'comp_7', name: 'Heavy Rigid (HR)', category: '', requirements: { role_1: 'D(A)', role_4: 'M(A)', role_12: 'D(A)', role_13: 'D(A)', role_16: 'M(A)', role_44: 'D(A)', role_75: 'D(A)', role_77: 'D(A)', role_80: 'D(A)' } },
+                { id: 'comp_8', name: 'Heavey Combination (HC)', category: '', requirements: {} },
+                { id: 'comp_9', name: 'Multi Combination (MC)', category: '', requirements: { role_5: 'M(A)' } }
+            ],
+            legend: {
+                'M(A)': 'Mandatory (All)',
+                'M(S)': 'Mandatory (Specific)',
+                'D(A)': 'Desirable (All)',
+                'D(S)': 'Desirable (Specific)'
+            }
+        };
+
+        function TrainingMatrix() {
+            const [searchTerm, setSearchTerm] = useState('');
+            const [selectedDepartment, setSelectedDepartment] = useState('');
+            const [selectedRole, setSelectedRole] = useState('');
+            const [viewMode, setViewMode] = useState('matrix'); // 'matrix' or 'cards'
+            const [filterType, setFilterType] = useState('all'); // 'all', 'mandatory', 'desirable'
+
+            const departments = useMemo(() => {
+                const depts = [...new Set(TRAINING_DATA.roles.map(r => r.department).filter(Boolean))];
+                return depts.sort();
+            }, []);
+
+            const filteredRoles = useMemo(() => {
+                return TRAINING_DATA.roles.filter(role => {
+                    const matchesSearch = role.name.toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchesDept = !selectedDepartment || role.department === selectedDepartment;
+                    return matchesSearch && matchesDept;
+                });
+            }, [searchTerm, selectedDepartment]);
+
+            const filteredCompetencies = useMemo(() => {
+                return TRAINING_DATA.competencies.filter(comp => {
+                    const matchesSearch = comp.name.toLowerCase().includes(searchTerm.toLowerCase());
+                    if (!matchesSearch) return false;
+                    
+                    if (filterType === 'mandatory') {
+                        return Object.values(comp.requirements).some(req => req.startsWith('M'));
+                    } else if (filterType === 'desirable') {
+                        return Object.values(comp.requirements).some(req => req.startsWith('D'));
+                    }
+                    return true;
+                });
+            }, [searchTerm, filterType]);
+
+            const getRequirementBadge = (requirement) => {
+                if (!requirement) return null;
+                
+                const isMandatory = requirement.startsWith('M');
+                const label = TRAINING_DATA.legend[requirement] || requirement;
+                
+                return (
+                    <span className={`px-2 py-1 rounded text-xs font-semibold ${isMandatory ? 'badge-mandatory' : 'badge-desirable'}`}>
+                        {requirement}
+                    </span>
+                );
+            };
+
+            const roleCompetencies = useMemo(() => {
+                if (!selectedRole) return [];
+                return TRAINING_DATA.competencies.filter(comp => 
+                    comp.requirements[selectedRole]
+                ).map(comp => ({
+                    ...comp,
+                    requirement: comp.requirements[selectedRole]
+                }));
+            }, [selectedRole]);
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    {/* Header */}
+                    <div className="bg-blue-600 text-white p-6 shadow-lg">
+                        <h1 className="text-3xl font-bold">Cook Shire Council Training Matrix</h1>
+                        <p className="mt-2 text-blue-100">Competency and Training Requirements</p>
+                    </div>
+
+                    {/* Controls */}
+                    <div className="bg-white shadow-md p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                                <input
+                                    type="text"
+                                    placeholder="Search roles or competencies..."
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                                <select
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    value={selectedDepartment}
+                                    onChange={(e) => setSelectedDepartment(e.target.value)}
+                                >
+                                    <option value="">All Departments</option>
+                                    {departments.map(dept => (
+                                        <option key={dept} value={dept}>{dept}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">View Mode</label>
+                                <select
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    value={viewMode}
+                                    onChange={(e) => setViewMode(e.target.value)}
+                                >
+                                    <option value="matrix">Matrix View</option>
+                                    <option value="role">Role Profile</option>
+                                    <option value="cards">Card View</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Filter Type</label>
+                                <select
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    value={filterType}
+                                    onChange={(e) => setFilterType(e.target.value)}
+                                >
+                                    <option value="all">All Requirements</option>
+                                    <option value="mandatory">Mandatory Only</option>
+                                    <option value="desirable">Desirable Only</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Legend */}
+                        <div className="mt-4 flex flex-wrap gap-4">
+                            <div className="text-sm">
+                                <span className="font-semibold">Legend:</span>
+                            </div>
+                            {Object.entries(TRAINING_DATA.legend).map(([code, desc]) => (
+                                <div key={code} className="flex items-center gap-2">
+                                    {getRequirementBadge(code)}
+                                    <span className="text-sm text-gray-600">{desc}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-6">
+                        {viewMode === 'matrix' && (
+                            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+                                <div className="matrix-container">
+                                    <table className="w-full border-collapse">
+                                        <thead>
+                                            <tr className="sticky-header border-b-2 border-gray-300">
+                                                <th className="sticky-col px-4 py-3 text-left bg-gray-100 font-semibold border-r-2 border-gray-300">Competency</th>
+                                                <th className="sticky-col px-4 py-3 text-left bg-gray-100 font-semibold border-r-2 border-gray-300" style={{left: '250px'}}>Category</th>
+                                                {filteredRoles.map(role => (
+                                                    <th key={role.id} className="matrix-cell px-2 py-3 text-left bg-gray-100 border-r border-gray-200">
+                                                        <div className="text-xs font-semibold">{role.name}</div>
+                                                        <div className="text-xs text-gray-500 mt-1">{role.department}</div>
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredCompetencies.map((comp, idx) => (
+                                                <tr key={comp.id} className={`border-b border-gray-200 hover:bg-blue-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                                                    <td className="sticky-col px-4 py-3 font-medium border-r-2 border-gray-300 bg-inherit">{comp.name}</td>
+                                                    <td className="sticky-col px-4 py-3 text-sm text-gray-600 border-r-2 border-gray-300 bg-inherit" style={{left: '250px'}}>{comp.category}</td>
+                                                    {filteredRoles.map(role => (
+                                                        <td key={role.id} className="matrix-cell px-2 py-3 text-center border-r border-gray-200">
+                                                            {comp.requirements[role.id] && getRequirementBadge(comp.requirements[role.id])}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div className="p-4 bg-gray-50 border-t text-sm text-gray-600">
+                                    Showing {filteredCompetencies.length} competencies across {filteredRoles.length} roles
+                                </div>
+                            </div>
+                        )}
+
+                        {viewMode === 'role' && (
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                {/* Role Selector */}
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h3 className="text-lg font-semibold mb-4">Select Role</h3>
+                                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                                        {filteredRoles.map(role => (
+                                            <button
+                                                key={role.id}
+                                                onClick={() => setSelectedRole(role.id)}
+                                                className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                                                    selectedRole === role.id 
+                                                        ? 'bg-blue-500 text-white' 
+                                                        : 'bg-gray-50 hover:bg-gray-100'
+                                                }`}
+                                            >
+                                                <div className="font-medium">{role.name}</div>
+                                                <div className="text-xs mt-1 opacity-75">{role.department}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Role Requirements */}
+                                <div className="lg:col-span-2 bg-white rounded-lg shadow-lg p-6">
+                                    {selectedRole ? (
+                                        <>
+                                            <div className="mb-6">
+                                                <h3 className="text-2xl font-bold text-gray-800">
+                                                    {TRAINING_DATA.roles.find(r => r.id === selectedRole)?.name}
+                                                </h3>
+                                                <p className="text-gray-600 mt-1">
+                                                    {TRAINING_DATA.roles.find(r => r.id === selectedRole)?.department}
+                                                </p>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <h4 className="text-lg font-semibold">Required Competencies</h4>
+                                                {roleCompetencies.length > 0 ? (
+                                                    <div className="space-y-3">
+                                                        {roleCompetencies.map(comp => (
+                                                            <div key={comp.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                                                <div className="flex justify-between items-start">
+                                                                    <div className="flex-1">
+                                                                        <h5 className="font-medium text-gray-800">{comp.name}</h5>
+                                                                        {comp.category && (
+                                                                            <p className="text-sm text-gray-500 mt-1">{comp.category}</p>
+                                                                        )}
+                                                                    </div>
+                                                                    <div>
+                                                                        {getRequirementBadge(comp.requirement)}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-gray-500 italic">No specific competencies required for this role.</p>
+                                                )}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="text-center text-gray-500 py-12">
+                                            <p className="text-lg">Select a role to view requirements</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {viewMode === 'cards' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {filteredRoles.map(role => {
+                                    const requirements = TRAINING_DATA.competencies
+                                        .filter(comp => comp.requirements[role.id])
+                                        .map(comp => ({
+                                            ...comp,
+                                            requirement: comp.requirements[role.id]
+                                        }));
+                                    
+                                    const mandatoryCount = requirements.filter(r => r.requirement.startsWith('M')).length;
+                                    const desirableCount = requirements.filter(r => r.requirement.startsWith('D')).length;
+
+                                    return (
+                                        <div key={role.id} className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
+                                            <h3 className="text-lg font-bold text-gray-800 mb-2">{role.name}</h3>
+                                            <p className="text-sm text-gray-600 mb-4">{role.department}</p>
+                                            
+                                            <div className="flex gap-4 mb-4">
+                                                <div className="flex-1 bg-red-50 rounded-lg p-3">
+                                                    <div className="text-2xl font-bold text-red-600">{mandatoryCount}</div>
+                                                    <div className="text-xs text-gray-600">Mandatory</div>
+                                                </div>
+                                                <div className="flex-1 bg-blue-50 rounded-lg p-3">
+                                                    <div className="text-2xl font-bold text-blue-600">{desirableCount}</div>
+                                                    <div className="text-xs text-gray-600">Desirable</div>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedRole(role.id);
+                                                    setViewMode('role');
+                                                }}
+                                                className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                                            >
+                                                View Details
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<TrainingMatrix />, document.getElementById('root'));
+    </script>
+</body>
+</html>
